@@ -15,7 +15,10 @@ export type AnyObject = Record<string, any>;
 
 export interface GlobalProps {}
 
-export type UnsafeLynx = BackgroundLynx & MainThreadLynx;
+export type UnsafeLynx = BackgroundLynx & MainThreadLynx & { addFont(
+    font: { src: string; 'font-family': string },
+    callback: (err?: Error) => void
+  ): void;};
 export type SafeLynx = CommonLynx;
 
 declare global {
