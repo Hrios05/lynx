@@ -43,6 +43,8 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
     ENABLE_LONG_TASK_TIMING,
     ENABLE_MEMORY_MONITOR,
     MEMORY_CHANGE_THRESHOLD_MB,
+    MEMORY_ACQUISITION_DELAY_SEC,
+    MEMORY_REPORT_INTERVAL_SEC,
     DEVTOOL_CONNECTED,
     ENABLE_QUICKJS_DEBUG,
     ENABLE_TABLE_DEEP_CHECK,
@@ -68,7 +70,7 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
     VSYNC_TRIGGERED_FROM_UI_THREAD_ANDROID,
     CLIP_RADIUS_FLATTEN,
     ENABLE_UI_OP_BATCH,
-    ENABLE_LAYOUT_ONLY_STATISTIC,
+    ENABLE_ELEMENT_STATISTIC,
     VSYNC_POST_TASK_BY_EMERGENCY,
     ENABLE_USE_MAP_BUFFER_FOR_UI_PROPS,
     DISABLE_ONCE_DYNAMIC_CSS,
@@ -105,6 +107,7 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
     FIX_FONT_SIZE_OVERRIDE_DIRECTION_CHANGE_BUG,
     // FIXME(linxs): remove this config in the next version
     FIX_NEGATIVE_Z_INDEX_INSERT_BUG,
+    ENABLE_NEW_ANIMATOR_ON_PATCH_FINISH_OPT,
     // Please add new enum values above
     END_MARK,  // Keep this as the last enum value, and do not use
   };
@@ -137,6 +140,9 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
             {Key::ENABLE_LONG_TASK_TIMING, "enable_long_task_timing"},
             {Key::ENABLE_MEMORY_MONITOR, "enable_memory_monitor"},
             {Key::MEMORY_CHANGE_THRESHOLD_MB, "memory_change_threshold_mb"},
+            {Key::MEMORY_ACQUISITION_DELAY_SEC,
+             "memory_acquisition_delay_second"},
+            {Key::MEMORY_REPORT_INTERVAL_SEC, "memory_report_interval_sec"},
             {Key::DEVTOOL_CONNECTED, "devtool_connected"},
             {Key::STORAGE_DIR, "storage_dir"},
             {Key::ENABLE_QUICKJS_DEBUG, "enable_quickjs_debug"},
@@ -169,7 +175,7 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
              "global_quick_context_pool_size"},
             {Key::CLIP_RADIUS_FLATTEN, "clip_radius_flatten"},
             {Key::ENABLE_UI_OP_BATCH, "enable_ui_op_batch"},
-            {Key::ENABLE_LAYOUT_ONLY_STATISTIC, "enable_layout_only_statistic"},
+            {Key::ENABLE_ELEMENT_STATISTIC, "enable_element_statistic"},
             {Key::VSYNC_TRIGGERED_FROM_UI_THREAD_ANDROID,
              "lynx_vsync_triggered_from_ui_thread_android"},
             {Key::VSYNC_POST_TASK_BY_EMERGENCY,
@@ -222,6 +228,8 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
             {Key::FIX_FONT_SIZE_OVERRIDE_DIRECTION_CHANGE_BUG,
              "fix_font_size_override_direction_change_bug"},
             {Key::FIX_NEGATIVE_Z_INDEX_INSERT_BUG, "fix_negative_z_index_bug"},
+            {Key::ENABLE_NEW_ANIMATOR_ON_PATCH_FINISH_OPT,
+             "enable_new_animator_on_patch_finish_opt"},
         });
     auto it = (*env_key_to_string_map).find(key);
     DCHECK(it != (*env_key_to_string_map).end());
@@ -317,6 +325,8 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
   bool EnableLongTaskTiming();
   bool EnableMemoryMonitor();
   uint32_t GetMemoryChangeThresholdMb();
+  uint32_t GetMemoryAcquisitionDelaySec();
+  uint32_t GetMemoryReportIntervalSec();
   int64_t GetV8HeapSize();
   std::unordered_set<std::string> GetActivatedCDPDomains();
   bool IsDebugModeEnabled();
@@ -348,6 +358,7 @@ class BASE_EXPORT_FOR_DEVTOOL LynxEnv {
   bool EnableReportMTSContextEvent();
   bool EnableFiberElementMemoryReport();
   bool FixFontSizeOverrideDirectionChangeBug();
+  bool EnableNewAnimatorOnPatchFinishOpt();
 
   LynxEnv(const LynxEnv&) = delete;
   LynxEnv& operator=(const LynxEnv&) = delete;

@@ -18,6 +18,7 @@ import android.text.style.AlignmentSpan;
 import android.text.style.StyleSpan;
 import android.util.Log;
 import android.util.SparseArray;
+import com.lynx.react.bridge.JavaOnlyArray;
 import com.lynx.react.bridge.mapbuffer.CompactArrayBuffer;
 import com.lynx.react.bridge.mapbuffer.ReadableCompactArrayBuffer;
 import com.lynx.tasm.LynxError;
@@ -29,6 +30,7 @@ import com.lynx.tasm.behavior.shadow.ShadowStyle;
 import com.lynx.tasm.behavior.ui.image.InlineImageSpan;
 import com.lynx.tasm.behavior.ui.image.LynxImageManager;
 import com.lynx.tasm.behavior.ui.text.AbsInlineImageSpan;
+import com.lynx.tasm.behavior.ui.utils.LynxBackground;
 import com.lynx.tasm.behavior.utils.UnicodeFontUtils;
 import com.lynx.tasm.fontface.FontFaceManager;
 import com.lynx.tasm.utils.DeviceUtils;
@@ -67,36 +69,22 @@ public class TextMeasurer {
   private final static int kPropRectSize = 103;
   private final static int kPropMargin = 104;
 
+  private final static int kPropBorderRadius = 105;
+
   private final static int kTextPropEnd = 0xFF;
 
   private LynxContext mContext;
   private SparseArray<Object> mExtraDatas;
+  private SparseArray<Object> mAttributedTextBundles;
   private long mNativePtr;
   public TextMeasurer(LynxContext context) {
     mContext = context;
     mExtraDatas = new SparseArray<>();
+    mAttributedTextBundles = new SparseArray<>();
     mNativePtr = 0;
   }
 
-  public float[] measureText(int sign, ReadableCompactArrayBuffer valueArray, float width,
-      int widthMode, float height, int heightMode) {
-    float[] result = measureTextInternal(sign, valueArray, width, MeasureMode.fromInt(widthMode),
-        height, MeasureMode.fromInt(heightMode), new TextMeasurer.TypefaceListener(sign, this));
-
-    return result;
-  }
-
-  TextAttributes ensureTextAttributes(TextAttributes attributes) {
-    if (attributes == null) {
-      attributes = buildTextAttributes();
-    }
-    return attributes;
-  }
-
-  private float[] measureTextInternal(int sign, ReadableCompactArrayBuffer valueArray, float width,
-      MeasureMode widthMode, float height, MeasureMode heightMode,
-      TextMeasurer.TypefaceListener typefaceListener) {
-    float[] result = new float[3];
+  public void dispatchLayoutBefore(int sign, ReadableCompactArrayBuffer valueArray) {
     CharSequence span;
     boolean mHasImageSpan = false;
     List<BaseTextShadowNode.SetSpanOperation> ops = new ArrayList<>();
@@ -141,6 +129,7 @@ public class TextMeasurer {
           textAttributes = null;
           start = 0;
           isParagraph = true;
+          inlineImageProps = null;
           break;
         case kPropTextString:
           text = iterator.next().getString();
@@ -170,12 +159,13 @@ public class TextMeasurer {
 
           break;
         case kTextPropLineHeight:
+          int lineHeight = iterator.next().getInt();
           if (!isParagraph) {
             Log.w("TextMeasurer", "line-height should be set to paragraph");
             continue;
           }
           textAttributes = ensureTextAttributes(textAttributes);
-          textAttributes.setLineHeight(iterator.next().getInt());
+          textAttributes.setLineHeight(lineHeight);
 
           break;
         case kTextPropFontStyle:
@@ -195,21 +185,23 @@ public class TextMeasurer {
           break;
 
         case kTextPropTextMaxLine:
+          int maxLine = iterator.next().getInt();
           if (!isParagraph) {
             Log.w("TextMeasurer", "text-maxline should be set to paragraph");
             continue;
           }
           textAttributes = ensureTextAttributes(textAttributes);
-          textAttributes.mMaxLineCount = iterator.next().getInt();
+          textAttributes.mMaxLineCount = maxLine;
           break;
 
         case kTextPropTextOverflow:
+          int textOverflow = iterator.next().getInt();
           if (!isParagraph) {
-            Log.w("TextMeasurer", "text-maxline should be set to paragraph");
+            Log.w("TextMeasurer", "text-overflow should be set to paragraph");
             continue;
           }
           textAttributes = ensureTextAttributes(textAttributes);
-          textAttributes.mTextOverflow = iterator.next().getInt();
+          textAttributes.mTextOverflow = textOverflow;
           break;
 
         // inline -image
@@ -223,6 +215,16 @@ public class TextMeasurer {
           shadowStyle = new ShadowStyle();
           shadowStyle.verticalAlign = iterator.next().getInt();
           shadowStyle.verticalAlignLength = (float) iterator.next().getDouble();
+          break;
+
+        case kTextPropTextAlign:
+          int textAlign = iterator.next().getInt();
+          if (!isParagraph) {
+            Log.w("TextMeasurer", "text-align should be set to paragraph");
+            continue;
+          }
+          textAttributes = ensureTextAttributes(textAttributes);
+          textAttributes.mTextAlign = textAlign;
           break;
 
         case kPropRectSize:
@@ -246,6 +248,58 @@ public class TextMeasurer {
           }
           break;
 
+        case kPropBorderRadius:
+          double top_left = iterator.next().getDouble();
+          int top_left_unit = iterator.next().getInt();
+
+          double top_right = iterator.next().getDouble();
+          int top_right_unit = iterator.next().getInt();
+
+          double bottom_left = iterator.next().getDouble();
+          int bottom_left_unit = iterator.next().getInt();
+
+          double bottom_right = iterator.next().getDouble();
+          int bottom_right_unit = iterator.next().getInt();
+
+          if (inlineImageProps == null) {
+            Log.w("TextMeasurer", "border-radius should be processed for inline image");
+            continue;
+          }
+
+          LynxBackground background = new LynxBackground(mContext);
+          // top_left_x
+          JavaOnlyArray array = new JavaOnlyArray();
+          array.pushDouble(top_left);
+          array.pushInt(top_left_unit);
+          // top_left_y
+          array.pushDouble(top_left);
+          array.pushInt(top_left_unit);
+
+          // top_right_x
+          array.pushDouble(top_right);
+          array.pushInt(top_right_unit);
+          // top_right_y
+          array.pushDouble(top_right);
+          array.pushInt(top_right_unit);
+
+          // bottom_left_x
+          array.pushDouble(bottom_left);
+          array.pushInt(bottom_left_unit);
+          // bottom_left_y
+          array.pushDouble(bottom_left);
+          array.pushInt(bottom_left_unit);
+
+          // bottom_right_x
+          array.pushDouble(bottom_right);
+          array.pushInt(bottom_right_unit);
+          // bottom_right_y
+          array.pushDouble(bottom_right);
+          array.pushInt(bottom_right_unit);
+
+          background.setBorderRadius(0, array);
+          inlineImageProps.mComplexBackground = background;
+          break;
+
         default:
           break;
       }
@@ -259,11 +313,41 @@ public class TextMeasurer {
 
     span = spannableString;
     if (span == null || textAttributes == null) {
+      return;
+    }
+
+    textAttributes.setHasImageSpan(mHasImageSpan);
+    AttributedTextBundle attributedTextBundle = new AttributedTextBundle(span, textAttributes);
+    mAttributedTextBundles.put(sign, attributedTextBundle);
+  }
+
+  public float[] measureText(int sign, float width, int widthMode, float height, int heightMode) {
+    float[] result = measureTextInternal(sign, width, MeasureMode.fromInt(widthMode), height,
+        MeasureMode.fromInt(heightMode), new TextMeasurer.TypefaceListener(sign, this));
+
+    return result;
+  }
+
+  TextAttributes ensureTextAttributes(TextAttributes attributes) {
+    if (attributes == null) {
+      attributes = buildTextAttributes();
+    }
+    return attributes;
+  }
+
+  private float[] measureTextInternal(int sign, float width, MeasureMode widthMode, float height,
+      MeasureMode heightMode, TextMeasurer.TypefaceListener typefaceListener) {
+    float[] result = new float[3];
+
+    AttributedTextBundle attributedTextBundle =
+        (AttributedTextBundle) mAttributedTextBundles.get(sign);
+    if (attributedTextBundle == null) {
       return result;
     }
 
-    TextRendererKey key = new TextRendererKey(
-        span, textAttributes, widthMode, heightMode, width, height, 0, false, true, true);
+    TextRendererKey key = new TextRendererKey(attributedTextBundle.getSpan(),
+        attributedTextBundle.getTextAttributes(), widthMode, heightMode, width, height, 0, false,
+        true, true);
     TextRenderer renderer = new TextRenderer(mContext, key);
     float measuredHeight = renderer.getTextLayoutHeight();
     float measuredWidth = renderer.getLayoutWidth();
@@ -273,13 +357,15 @@ public class TextMeasurer {
     result[1] = measuredHeight;
     result[2] = baseline;
 
-    TextUpdateBundle bundle = new TextUpdateBundle(renderer.getTextLayout(), mHasImageSpan, null,
+    TextUpdateBundle bundle = new TextUpdateBundle(renderer.getTextLayout(),
+        attributedTextBundle.getTextAttributes().hasImageSpan(), null,
         false
-            && (textAttributes != null
-                && textAttributes.getTextAlign() == StyleConstants.TEXTALIGN_JUSTIFY));
+            && (attributedTextBundle.getTextAttributes() != null
+                && attributedTextBundle.getTextAttributes().getTextAlign()
+                    == StyleConstants.TEXTALIGN_JUSTIFY));
     bundle.setTextTranslateOffset(renderer.getTextTranslateOffset());
 
-    bundle.setOriginText(spannableString);
+    bundle.setOriginText(attributedTextBundle.getSpan());
 
     if (bundle != null) {
       mExtraDatas.put(sign, bundle);
@@ -382,6 +468,13 @@ public class TextMeasurer {
       imageSpan.setVerticalAlign(shadowStyle.verticalAlign, shadowStyle.verticalAlignLength);
     }
 
+    if (imageProps.mComplexBackground != null
+        && imageProps.mComplexBackground.getDrawable() != null) {
+      imageProps.mComplexBackground.getDrawable().setBounds(
+          0, 0, imageProps.mWidth, imageProps.mHeight);
+      imageSpan.setComplexBackground(imageProps.mComplexBackground);
+    }
+
     // trigger image request
     lynxImageManager.updateNodeProps();
 
@@ -391,6 +484,7 @@ public class TextMeasurer {
       // TBD
       imageSpan.setVerticalShift(attributes.mBaselineShift);
     }
+
     ops.add(new BaseTextShadowNode.SetSpanOperation(start, end, imageSpan));
   }
 
@@ -401,19 +495,17 @@ public class TextMeasurer {
   }
 
   public Object takeTextLayout(int sign) {
-    Object value = mExtraDatas.get(sign);
-    if (value != null) {
-      mExtraDatas.remove(sign);
-    }
-    return value;
+    return mExtraDatas.get(sign);
   }
 
   public void releaseLayoutObject(int sign) {
     mExtraDatas.remove(sign);
+    mAttributedTextBundles.remove(sign);
   }
 
   public void removeLayoutObjects() {
     mExtraDatas.clear();
+    mAttributedTextBundles.clear();
   }
 
   public class TypefaceListener implements TypefaceCache.TypefaceListener {
@@ -441,5 +533,6 @@ public class TextMeasurer {
     public int[] mMargins = new int[4];
     public String mSrc;
     public String mMode;
+    public LynxBackground mComplexBackground;
   }
 }

@@ -23,12 +23,14 @@ import com.lynx.tasm.base.LLog;
 import com.lynx.tasm.base.TraceEvent;
 import com.lynx.tasm.base.trace.TraceEventDef;
 import com.lynx.tasm.behavior.shadow.ShadowNodeType;
+import com.lynx.tasm.behavior.shadow.TextLayout;
 import com.lynx.tasm.behavior.ui.LynxBaseUI;
 import com.lynx.tasm.behavior.ui.list.container.UIListContainer;
 import com.lynx.tasm.behavior.ui.view.UIComponent;
 import com.lynx.tasm.behavior.utils.LynxUIMethodsExecutor;
 import com.lynx.tasm.event.EventsListener;
 import com.lynx.tasm.gesture.detector.GestureDetector;
+import com.lynx.tasm.performance.PerformanceController;
 import com.lynx.tasm.utils.UIThreadUtils;
 import java.util.Iterator;
 import java.util.Map;
@@ -78,27 +80,32 @@ class CreateViewAsyncStatus {
   public static final int FUTURE_DONE_EXCEPTION = 3;
 }
 
-public final class PaintingContext {
+public final class PaintingContext implements IPaintingContext {
   private static final String TAG = "lynx_PaintingContext";
   private final LynxUIOwner mUIOwner;
+  private TextLayout mTextLayout;
   private boolean mDestroyed;
   private ConcurrentHashMap<String, Boolean> mNeedCreateNodeAsyncCache;
 
   private long mNativePaintingContextPtr = 0;
-
   public PaintingContext(LynxUIOwner uiOwner, int threadStrategy) {
     mUIOwner = uiOwner;
     mDestroyed = false;
     mNeedCreateNodeAsyncCache = new ConcurrentHashMap<String, Boolean>();
+    if (mUIOwner.getContext().isLayoutInElementModeOn()) {
+      mTextLayout = new TextLayout(uiOwner);
+    }
     mNativePaintingContextPtr =
-        nativeCreatePaintingContext(this, threadStrategy, mUIOwner.isContextFree());
+        nativeCreatePaintingContext(this, mTextLayout, threadStrategy, mUIOwner.isContextFree());
   }
 
   // this func will be execed on main thread.
+  @Override
   public void destroy() {
     mDestroyed = true;
   }
 
+  @Override
   public long getNativePaintingContextPtr() {
     return mNativePaintingContextPtr;
   }
@@ -220,6 +227,22 @@ public final class PaintingContext {
       int nodeIndex, ReadableArray gestureDetectors) {
     return mUIOwner.createViewAsyncRunnable(sign, tagName, initialProps, initialStyles,
         eventListeners, isFlatten, nodeIndex, gestureDetectors);
+  }
+
+  @CalledByNative
+  public void setNeedMarkPaintEndTiming(String pipelineId) {
+    if (mUIOwner == null) {
+      return;
+    }
+    LynxContext context = mUIOwner.getContext();
+    if (context == null) {
+      return;
+    }
+    PerformanceController perfController = context.getPerfController();
+    if (perfController == null) {
+      return;
+    }
+    perfController.setNeedMarkPaintEndTiming(pipelineId);
   }
 
   /**
@@ -742,14 +765,19 @@ public final class PaintingContext {
     mUIOwner.setFrameAppBundle(sign, bundle);
   }
 
+  @CalledByNative
+  private void markUIOperationQueueFlushForRecreateEngine(boolean enable) {
+    if (mUIOwner == null) {
+      return;
+    }
+    if (mUIOwner.getContext() == null) {
+      return;
+    }
+    mUIOwner.getContext().markFallbackProcess(enable);
+  }
+
   private native void nativeInvokeCallback(long context, int callback, WritableArray array);
 
   private native long nativeCreatePaintingContext(
-      Object paintingContext, int threadStrategy, boolean isContextFree);
-
-  @CalledByNative
-  public float[] measureText(int sign, ReadableCompactArrayBuffer buffer, float width,
-      int widthMode, float height, int heightMode) {
-    return mUIOwner.measureText(sign, buffer, width, widthMode, height, heightMode);
-  }
+      Object paintingContext, Object textLayout, int threadStrategy, boolean isContextFree);
 }

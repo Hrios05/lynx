@@ -33,6 +33,7 @@ import com.lynx.devtoolwrapper.MessageHandler;
 import com.lynx.jsbridge.LynxModuleFactory;
 import com.lynx.react.bridge.Callback;
 import com.lynx.react.bridge.ReadableMap;
+import com.lynx.recorder.LynxDebugInfoRecorder;
 import com.lynx.tasm.LynxEnv;
 import com.lynx.tasm.LynxEnvKey;
 import com.lynx.tasm.LynxError;
@@ -145,6 +146,13 @@ public class LynxInspectorOwner implements LynxBaseInspectorOwnerNG {
     mReloadHelper = reloadHelper;
     if (mPlatform != null) {
       mPlatform.setReloadHelper(reloadHelper);
+    }
+  }
+
+  @Override
+  public void setDebugInfoInterceptor(LynxDebugInfoRecorder debugInfoRecorder) {
+    if (mPlatform != null) {
+      mPlatform.setDebugInfoInterceptor(debugInfoRecorder);
     }
   }
 
@@ -435,12 +443,20 @@ public class LynxInspectorOwner implements LynxBaseInspectorOwnerNG {
     }
   }
 
-  public void setStopAtEntry(boolean stop, boolean isLepus) {
-    nativeSetStopAtEntry(stop, isLepus);
+  public void setStopAtEntry(boolean stop, boolean isMTS) {
+    nativeSetStopAtEntry(stop, isMTS);
   }
 
-  public boolean getStopAtEntry(boolean isLepus) {
-    return nativeGetStopAtEntry(isLepus);
+  public boolean getStopAtEntry(boolean isMTS) {
+    return nativeGetStopAtEntry(isMTS);
+  }
+
+  public void setFetchDebugInfo(boolean fetch, boolean isMTS) {
+    nativeSetFetchDebugInfo(fetch, isMTS);
+  }
+
+  public boolean getFetchDebugInfo(boolean isMTS) {
+    return nativeGetFetchDebugInfo(isMTS);
   }
 
   public Object setGlobalSwitch(String message) {
@@ -668,8 +684,10 @@ public class LynxInspectorOwner implements LynxBaseInspectorOwnerNG {
     void onGlobalPropsUpdated(Map globalProps);
   }
 
-  private native void nativeSetStopAtEntry(boolean stop, boolean isLepus);
-  private native boolean nativeGetStopAtEntry(boolean isLepus);
+  private native void nativeSetStopAtEntry(boolean stop, boolean isMTS);
+  private native boolean nativeGetStopAtEntry(boolean isMTS);
+  private native void nativeSetFetchDebugInfo(boolean fetch, boolean isMTS);
+  private native boolean nativeGetFetchDebugInfo(boolean isMTS);
   private native void nativeInitRecorderConfig(
       String filePath, int sessionID, float screenWidth, float screenHeight, long recordID);
   private native void nativeSendFileByAgent(String type, String file);

@@ -104,6 +104,8 @@ void PageElement::PostResolveTaskToThreadPool(
   EnsureTagInfo();
   // Decode first
   GetRelatedCSSFragment();
+  GetCSSFragment();
+
   UpdateResolveStatus(AsyncResolveStatus::kSyncResolving);
   ParallelFlushReturn remaining_task = PrepareForCreateOrUpdate();
 
@@ -150,10 +152,8 @@ void PageElement::SetCSSID(int32_t id) {
  * Reference {@link LayoutContext#Layout }
  */
 void PageElement::Layout(const std::shared_ptr<PipelineOptions>& options) {
-  element_manager()->OnUpdateViewport(
-      element_manager_->viewport_.width, element_manager_->viewport_.width_mode,
-      element_manager_->viewport_.height,
-      element_manager_->viewport_.height_mode, false);
+  DispatchLayoutBeforeRecursively();
+
   sl_node_->ReLayout();
 
   painting_context()->AppendOptionsForTiming(options);
@@ -172,7 +172,9 @@ void PageElement::Layout(const std::shared_ptr<PipelineOptions>& options) {
 
   painting_context()->FinishLayoutOperation(options);
 
-  painting_context()->Flush();
+  if (!options->enable_unified_pixel_pipeline) {
+    painting_context()->Flush();
+  }
 }
 
 }  // namespace tasm

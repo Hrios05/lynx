@@ -43,6 +43,7 @@ import com.lynx.tasm.ThreadStrategyForRendering;
 import com.lynx.tasm.base.LLog;
 import com.lynx.tasm.base.LynxPageLoadListener;
 import com.lynx.tasm.behavior.event.EventTarget;
+import com.lynx.tasm.behavior.render.NativePaintingContext;
 import com.lynx.tasm.behavior.shadow.LayoutTick;
 import com.lynx.tasm.behavior.ui.LynxBaseUI;
 import com.lynx.tasm.behavior.ui.LynxUI;
@@ -82,7 +83,7 @@ public class LynxUIRenderer implements ILynxUIRenderer {
   private TouchEventDispatcher mEventDispatcher;
 
   private ShadowNodeOwner mShadowNodeOwner;
-  private PaintingContext mPaintingContext;
+  private IPaintingContext mPaintingContext;
   private long mNativeUIDelegatePtr = 0;
   private String mScreenshotMode = ScreenshotMode.SCREEN_SHOT_MODE_FULL_SCREEN;
   private LynxBooleanOption mLongTaskMonitorEnabled;
@@ -160,7 +161,9 @@ public class LynxUIRenderer implements ILynxUIRenderer {
     if (mLynxUIOwner == null) {
       return;
     }
-    mPaintingContext = new PaintingContext(mLynxUIOwner, threadStrategy.id());
+    mPaintingContext = context.isFragmentLayerRenderOn()
+        ? new NativePaintingContext(mLynxUIOwner.getRootUI().getBodyView(), context)
+        : new PaintingContext(mLynxUIOwner, threadStrategy.id());
     mShadowNodeOwner = new ShadowNodeOwner(context, behaviorRegistry, layoutTick);
     context.setShadowNodeOwner(mShadowNodeOwner);
   }
@@ -404,10 +407,10 @@ public class LynxUIRenderer implements ILynxUIRenderer {
   @Override
   public void performInnerMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     LynxContext lynxContext = (mLynxContext != null) ? mLynxContext.get() : null;
-    LynxView lynxView = (lynxContext != null) ? lynxContext.getLynxView() : null;
-    if ((mLynxUIOwner == null) || (lynxView == null)) {
+    UIBodyView bodyView = (lynxContext != null) ? lynxContext.getUIBodyView() : null;
+    if ((mLynxUIOwner == null) || (bodyView == null)) {
       LLog.e(TAG,
-          "performInnerMeasure failed, mLynxUIOwner:" + mLynxUIOwner + ",lynxView:" + lynxView);
+          "performInnerMeasure failed, mLynxUIOwner:" + mLynxUIOwner + ", bodyView:" + bodyView);
       return;
     }
     mLynxUIOwner.performMeasure();
@@ -425,7 +428,7 @@ public class LynxUIRenderer implements ILynxUIRenderer {
     } else {
       height = MeasureSpec.getSize(heightMeasureSpec);
     }
-    lynxView.innerSetMeasuredDimension(width, height);
+    bodyView.innerSetMeasuredDimension(width, height);
   }
 
   @Override

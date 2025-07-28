@@ -41,6 +41,7 @@ import com.lynx.tasm.behavior.ui.LynxUI;
 import com.lynx.tasm.behavior.ui.UIBody;
 import com.lynx.tasm.behavior.ui.UIBody.UIBodyView;
 import com.lynx.tasm.behavior.ui.UIGroup;
+import com.lynx.tasm.behavior.ui.UIParams;
 import com.lynx.tasm.behavior.ui.UIShadowProxy;
 import com.lynx.tasm.behavior.ui.accessibility.LynxAccessibilityWrapper;
 import com.lynx.tasm.behavior.ui.list.UIList;
@@ -54,6 +55,7 @@ import com.lynx.tasm.eventreport.LynxEventReporter;
 import com.lynx.tasm.gesture.LynxNewGestureDelegate;
 import com.lynx.tasm.gesture.arena.GestureArenaManager;
 import com.lynx.tasm.gesture.detector.GestureDetector;
+import com.lynx.tasm.performance.memory.MemoryRecord;
 import com.lynx.tasm.utils.LynxConstants;
 import com.lynx.tasm.utils.UIThreadUtils;
 import java.lang.ref.WeakReference;
@@ -475,9 +477,10 @@ public class LynxUIOwner {
     }
     UIThreadUtils.assertOnUiThread();
     LynxBaseUI ui = null;
+    UIParams params = new UIParams(
+        sign, nodeIndex, flatten, tagName, initialProps, eventsListenerMap, gestureDetectors);
     try {
-      ui = createViewInterval(
-          sign, tagName, eventsListenerMap, flatten, nodeIndex, gestureDetectors);
+      ui = createViewInterval(params);
       ui = consumeInitialProps(ui, initialProps);
     } catch (Throwable e) {
       RuntimeException exception = new RuntimeException(
@@ -514,6 +517,9 @@ public class LynxUIOwner {
     Map<Integer, GestureDetector> detectors =
         GestureDetector.convertGestureDetectors(gestureDetectors);
 
+    UIParams params =
+        new UIParams(sign, nodeIndex, isFlatten, tagName, styles, listeners, detectors);
+
     createViewInternal(sign, tagName, styles, listeners, isFlatten, nodeIndex, detectors);
   }
 
@@ -530,6 +536,9 @@ public class LynxUIOwner {
     Map<String, EventsListener> listeners = EventsListener.convertEventListeners(eventListeners);
     Map<Integer, GestureDetector> detectors =
         GestureDetector.convertGestureDetectors(gestureDetectors);
+
+    UIParams params =
+        new UIParams(sign, nodeIndex, isFlatten, tagName, styles, listeners, detectors);
     try {
       String traceEvent = null;
       if (TraceEvent.isTracingStarted()) {
@@ -537,7 +546,7 @@ public class LynxUIOwner {
         TraceEvent.beginSection(traceEvent);
       }
       final LynxBaseUI[] ui = new LynxBaseUI[1];
-      ui[0] = createViewInterval(sign, tagName, listeners, isFlatten, nodeIndex, detectors);
+      ui[0] = createViewInterval(params);
       final UIShadowProxy proxy = consumeInitialPropsInterval(ui[0], styles);
       if (TraceEvent.isTracingStarted()) {
         TraceEvent.endSection(traceEvent);
@@ -601,9 +610,11 @@ public class LynxUIOwner {
           traceEvent = TraceEventDef.UI_OWNER_CREATE_VIEW_ASYNC + tagName;
           traceBeginWithInstanceId(traceEvent);
         }
+        UIParams params = new UIParams(
+            sign, nodeIndex, flatten, tagName, initialProps, eventsListenerMap, gestureDetectors);
+
         final LynxBaseUI[] ui = new LynxBaseUI[1];
-        ui[0] = createViewInterval(
-            sign, tagName, eventsListenerMap, flatten, nodeIndex, gestureDetectors);
+        ui[0] = createViewInterval(params);
         final UIShadowProxy proxy = consumeInitialPropsInterval(ui[0], initialProps);
         if (TraceEvent.isTracingStarted()) {
           TraceEvent.endSection(traceEvent);
@@ -702,26 +713,29 @@ public class LynxUIOwner {
     return ui;
   }
 
-  private LynxBaseUI createViewInterval(int sign, String tagName,
-      @Nullable Map<String, EventsListener> eventsListenerMap, boolean flatten, int nodeIndex,
-      @Nullable Map<Integer, GestureDetector> gestureDetectors) {
+  private LynxBaseUI createViewInterval(UIParams params) {
     LynxBaseUI ui = null;
 
     // Root ui do not need to create from behavior as ui has been created through
     // createRootUI()
-    if (mRootSign < 0 && tagName.equals(LynxConstants.ROOT_TAG_NAME)) {
+    if (mRootSign < 0 && params.mTagName.equals(LynxConstants.ROOT_TAG_NAME)) {
       ui = mUIBody;
-      mRootSign = sign;
+      mRootSign = params.mSign;
       if (ui != null && mAttachLynxPageUICallback != null) {
         mAttachLynxPageUICallback.attachLynxPageUI(new WeakReference<>(ui));
       }
     } else {
-      ui = createUI(tagName, flatten);
-      ui.setEvents(eventsListenerMap);
+      ui = createUI(params.mTagName, params.mIsFlatten, params);
     }
-    ui.setSign(sign, tagName);
-    ui.setNodeIndex(nodeIndex);
-    ui.setGestureDetectors(gestureDetectors);
+
+    if (ui == null) {
+      return ui;
+    }
+
+    ui.setEvents(params.mEventsListenerMap);
+    ui.setSign(params.mSign, params.mTagName);
+    ui.setNodeIndex(params.mNodeIndex);
+    ui.setGestureDetectors(params.mGestureDetectors);
     return ui;
   }
 
@@ -1156,6 +1170,43 @@ public class LynxUIOwner {
     mUIBody.measureChildren();
   }
 
+  public HashMap<String, MemoryRecord> getMemoryUsage() {
+    if (mUIHolder == null) {
+      return null;
+    }
+    HashMap<String, MemoryRecord> records = new HashMap<>();
+    for (Map.Entry<Integer, LynxBaseUI> e : mUIHolder.entrySet()) {
+      LynxBaseUI baseUI = e.getValue();
+      if (baseUI == null || !(baseUI instanceof LynxBaseUI)) {
+        // In some unknown case, e.getValue() is instance of java.lang.Double.
+        // Here, we filter these cases to avoid ClassCastException.
+        LLog.e(TAG, "getMemoryUsage failed, the ui is null or not LynxBaseUI");
+        continue;
+      }
+      String tag = baseUI.getTagName();
+      if (tag == null) {
+        continue;
+      }
+      long objSizeBytes = baseUI.getMemoryUsageBytes();
+      MemoryRecord record = records.get(tag);
+      if (record == null) {
+        record = new MemoryRecord(tag, 0, 0, null);
+        records.put(tag, record);
+      }
+      record.mInstanceCount++;
+      record.mSizeBytes += objSizeBytes;
+      Map<String, String> detail = baseUI.getMemoryUsageDetail();
+
+      if (detail != null) {
+        if (record.mDetail == null) {
+          record.mDetail = new HashMap<>();
+        }
+        record.mDetail.putAll(detail);
+      }
+    }
+    return records;
+  }
+
   public void performLayout() {
     mUIBody.layoutChildren();
 
@@ -1558,10 +1609,16 @@ public class LynxUIOwner {
     }
   }
 
+  // TODO(songshourui.null): Since this is a public API, it will be temporarily retained to avoid
+  // compilation breaks.
   public LynxBaseUI createUI(String tag, boolean flatten) {
+    return createUI(tag, flatten, null);
+  }
+
+  private LynxBaseUI createUI(String tag, boolean flatten, Object params) {
     LynxBaseUI ui = null;
     if (mContext.isUseNewSwiper()) {
-      ui = createSwiperIfNeeded(tag, ui);
+      ui = createSwiperIfNeeded(tag, ui, params);
     }
     if (ui == null) {
       Behavior behavior = mBehaviorRegistry.get(tag);
@@ -1571,12 +1628,10 @@ public class LynxUIOwner {
         flatten = false;
       }
       if (flatten && behavior.supportUIFlatten()) {
-        ui = behavior.createFlattenUI(mContext);
-      } else {
-        ui = behavior.createUI(mContext);
+        ui = behavior.createFlattenUIWithParams(mContext, params);
       }
       if (ui == null) {
-        ui = behavior.createUI(mContext);
+        ui = behavior.createUIWithParams(mContext, params);
       }
     }
     return ui;
@@ -1659,9 +1714,9 @@ public class LynxUIOwner {
     return mIsContextFree;
   }
 
-  private LynxBaseUI createSwiperIfNeeded(String tagName, LynxBaseUI origin) {
+  private LynxBaseUI createSwiperIfNeeded(String tagName, LynxBaseUI origin, Object params) {
     if ("swiper".equals(tagName) || "x-swiper".equals(tagName)) {
-      return new XSwiperUI(mContext);
+      return new XSwiperUI(mContext, params);
     }
     return origin;
   }
@@ -1882,9 +1937,12 @@ public class LynxUIOwner {
     updateViewExtraData(tag, bundle);
   }
 
-  public float[] measureText(int sign, ReadableCompactArrayBuffer valueArray, float width,
-      int widthMode, float height, int heightMode) {
-    return mTextMeasurer.measureText(sign, valueArray, width, widthMode, height, heightMode);
+  public void dispatchLayoutBefore(int sign, ReadableCompactArrayBuffer valueArray) {
+    mTextMeasurer.dispatchLayoutBefore(sign, valueArray);
+  }
+
+  public float[] measureText(int sign, float width, int widthMode, float height, int heightMode) {
+    return mTextMeasurer.measureText(sign, width, widthMode, height, heightMode);
   }
   public Object takeTextLayout(int sign) {
     return mTextMeasurer != null ? mTextMeasurer.takeTextLayout(sign) : null;

@@ -546,7 +546,7 @@ class Element : public lepus::RefCounted {
   bool TickAllAnimation(fml::TimePoint& time,
                         std::shared_ptr<PipelineOptions>& options);
 
-  void ClearTransitionPreviousEndValue(const std::string&);
+  void ClearTransitionPreviousEndValue(const base::String&);
 
   virtual void RequestLayout() = 0;
 
@@ -621,6 +621,8 @@ class Element : public lepus::RefCounted {
   virtual bool is_wrapper() const { return false; }
 
   virtual void MarkAsListItem() { is_list_item_ = true; }
+
+  virtual int32_t GetBuiltInNodeInfo() const { return 0; }
 
   bool is_list_item() const { return is_list_item_; }
 

@@ -21,7 +21,6 @@ target 'LynxExplorer' do
   use_frameworks! :linkage => :static
   pod 'Lynx', :path => '../../../..', :subspecs => [
    'Framework',
-   'Replay',
   ],:testspecs => [ 'UnitTests' ]
 
   pod 'LynxDevtool', :path => '../../../..', :subspecs => [
@@ -42,12 +41,12 @@ target 'LynxExplorer' do
     'Behavior',
   ]
 
-  pod 'PrimJS', '2.13.2-rc.0', :subspecs => ['quickjs', 'napi']
+  pod 'PrimJS', '2.13.2-rc.1', :subspecs => ['quickjs', 'napi']
 
   pod 'SDWebImage','5.15.5'
   pod 'SDWebImageWebPCoder', '0.11.0'
 
-  pod 'DebugRouter', '5.0.11'
+  pod 'DebugRouter', '5.0.13-rc.1'
 end
 
 target 'LynxExplorerTests' do

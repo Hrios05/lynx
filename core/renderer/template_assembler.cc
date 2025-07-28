@@ -34,6 +34,7 @@
 #include "core/renderer/dom/vdom/radon/radon_node.h"
 #include "core/renderer/dom/vdom/radon/radon_page.h"
 #include "core/renderer/pipeline/pipeline_context.h"
+#include "core/renderer/pipeline/pipeline_scope.h"
 #include "core/renderer/trace/renderer_trace_event_def.h"
 #include "core/renderer/ui_wrapper/painting/painting_context.h"
 #include "core/renderer/utils/base/base_def.h"
@@ -226,6 +227,9 @@ TemplateAssembler::TemplateAssembler(Delegate& delegate,
           enable_unified_pipeline ||
           LynxEnv::GetInstance().EnableUnifiedPixelPipeline())) {
   TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_ASSEMBLER_CONSTRUCTOR);
+  pipeline_context_manager_->SetOnCreateHook(
+      [this]() { EnsureOnLayoutReadyHooksFinish(); });
+
   page_proxy()->element_manager()->SetElementManagerDelegate(
       &element_manager_delegate_);
   auto card = std::make_shared<TemplateEntry>();
@@ -245,8 +249,7 @@ void TemplateAssembler::UpdateGlobalProps(
 #endif
   TRACE_EVENT(LYNX_TRACE_CATEGORY, LYNX_UPDATE_GLOBAL_PROPS, "need_render",
               need_render);
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
+  PipelineScope pipeline_scope(this, pipeline_options);
 
   global_props_ = data;
   if (template_loaded_) {
@@ -278,10 +281,6 @@ void TemplateAssembler::UpdateGlobalProps(
     need_render =
         need_render && template_loaded_ && !page_proxy_.IsServerSideRendering();
     page_proxy_.UpdateGlobalProps(global_props_, need_render, pipeline_options);
-  }
-
-  if (need_render) {
-    RunPixelPipeline();
   }
 }
 
@@ -637,6 +636,8 @@ void TemplateAssembler::RenderTemplateForFiber(
     std::shared_ptr<PipelineOptions>& pipeline_options) {
   tasm::TimingCollector::Instance()->Mark(tasm::timing::kCreateVdomStart);
 
+  pipeline_options->is_first_screen = true;
+
   lepus::Value render_options(lepus::Dictionary::Create());
   if (EnableDataProcessorOnJs()) {
     auto kProcessorName_str = BASE_STATIC_STRING(kProcessorName);
@@ -697,8 +698,6 @@ void TemplateAssembler::RenderTemplateForFiber(
 
   tasm::TimingCollector::Instance()->Mark(tasm::timing::kCreateVdomEnd);
   tasm::TimingCollector::Instance()->Mark(tasm::timing::kMtsRenderEnd);
-
-  pipeline_options->is_first_screen = true;
 
   // TODO(nihao.royal): use `enable_unified_pixel_pipeline` to switch multi
   // behaviours. After `RunPixelPipeline` is unified, we may remove the
@@ -811,8 +810,7 @@ void TemplateAssembler::DidLoadTemplate() {
 void TemplateAssembler::LoadTemplateBundle(
     const std::string& url, LynxTemplateBundle template_bundle,
     const std::shared_ptr<TemplateData>& template_data,
-    std::shared_ptr<PipelineOptions>& pipeline_options,
-    const bool enable_pre_painting, bool enable_dump_element_tree) {
+    std::shared_ptr<PipelineOptions>& pipeline_options) {
   // TODO (nihao.royal) add testbench for LoadTemplateBundle.
 #if ENABLE_TESTBENCH_RECORDER
   tasm::recorder::TemplateAssemblerRecorder::RecordLoadTemplateBundle(
@@ -822,7 +820,7 @@ void TemplateAssembler::LoadTemplateBundle(
     client->SetRecordId(record_id_);
   }
 #endif
-  pre_painting_ = enable_pre_painting;
+  pre_painting_ = pipeline_options->enable_pre_painting;
   if (pre_painting_) {
     page_proxy_.SetPrePaintingStage(PrePaintingStage::kStartPrePainting);
   }
@@ -832,7 +830,7 @@ void TemplateAssembler::LoadTemplateBundle(
 
   if (page_proxy_.element_manager()) {
     page_proxy_.element_manager()->SetEnableDumpElementTree(
-        enable_dump_element_tree);
+        pipeline_options->enable_dump_element_tree);
   }
   TimingCollector::Instance()->Mark(tasm::timing::kTemplateBundleParseStart,
                                     template_bundle.decode_start_timestamp_);
@@ -851,8 +849,7 @@ void TemplateAssembler::LoadTemplateBundle(
 void TemplateAssembler::LoadTemplate(
     const std::string& url, std::vector<uint8_t> source,
     const std::shared_ptr<TemplateData>& template_data,
-    std::shared_ptr<PipelineOptions>& pipeline_options,
-    const bool enable_pre_painting, bool enable_recycle_template_bundle) {
+    std::shared_ptr<PipelineOptions>& pipeline_options) {
 #if ENABLE_TESTBENCH_RECORDER
   // test-bench actions
   tasm::recorder::TemplateAssemblerRecorder::RecordLoadTemplate(
@@ -864,13 +861,16 @@ void TemplateAssembler::LoadTemplate(
 #endif
   source_size_ = source.size();
   url_ = url;
-  pre_painting_ = enable_pre_painting;
+  pre_painting_ = pipeline_options->enable_pre_painting;
+  ;
   if (pre_painting_) {
     page_proxy_.SetPrePaintingStage(PrePaintingStage::kStartPrePainting);
   }
   LoadTemplateInternal(
       url, template_data, pipeline_options,
-      [this, source = std::move(source), enable_recycle_template_bundle](
+      [this, source = std::move(source),
+       enable_recycle_template_bundle =
+           pipeline_options->enable_recycle_template_bundle](
           const std::shared_ptr<TemplateEntry>& card_entry) mutable {
         if (!FromBinary(card_entry, std::move(source))) {
           return false;
@@ -903,6 +903,11 @@ void TemplateAssembler::LoadTemplateInternal(
     std::shared_ptr<PipelineOptions>& pipeline_options,
     base::MoveOnlyClosure<bool, const std::shared_ptr<TemplateEntry>&>
         entry_initializer) {
+#ifdef AS_PLUGIN
+  LOGE("lynx_plugin: load lynx plugin so");
+#else
+  LOGE("lynx_plugin: load original lynx so");
+#endif
   // Trace LoadTemplate
   TRACE_EVENT(
       LYNX_TRACE_CATEGORY_VITALS, LYNX_LOAD_TEMPLATE,
@@ -920,8 +925,6 @@ void TemplateAssembler::LoadTemplateInternal(
 #endif
 
   Scope scope(this);
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
 
   // Before exec load template, do some preparation
   // 1. exec timing actions
@@ -971,6 +974,12 @@ void TemplateAssembler::LoadTemplateInternal(
                       pipeline_options);
   }
 
+  // TODO(songshourui.null): We need read template's conifg or native config to
+  // check if enable unified pipeline for now, so we should init PipelineScope
+  // after decoding. When default enable unified pipeline, we can put this at
+  // the begining of LoadTemplate.
+  PipelineScope pipeline_scope(this, pipeline_options);
+
   {
     // Trace VM Execute
     TRACE_EVENT(LYNX_TRACE_CATEGORY_VITALS, VM_EXECUTE);
@@ -1019,7 +1028,7 @@ void TemplateAssembler::LoadTemplateInternal(
     RenderTemplate(card, data, pipeline_options);
 
     // starts to run pixel pipeline;
-    this->RunPixelPipeline();
+    pipeline_scope.Exit();
 
     // After render template, exec some aftercare
     // 1. ssr actions
@@ -1047,8 +1056,8 @@ void TemplateAssembler::ReloadTemplate(
 #endif
   Scope scope(this);
   // Reload update major version.
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options, true /*is_major_updated*/);
+  PipelineScope pipeline_scope(this, pipeline_options,
+                               true /*is_major_updated*/);
 
   if (is_loading_template_) {
     // TODO(zhoupeng.z): this error should not be a 10X fatal, change the error
@@ -1134,7 +1143,7 @@ void TemplateAssembler::ReloadTemplate(
   UpdateTemplate(data, update_page_option, pipeline_options);
 
   // UpdateTemplate will RequestResolve if needed.
-  RunPixelPipeline();
+  pipeline_scope.Exit();
 
   // Here no need to call delegate_.OnDataUpdated();
   // Because this update is like a new template loaded, but not a update.
@@ -1176,43 +1185,44 @@ void TemplateAssembler::ReloadFromJS(
   TRACE_EVENT(LYNX_TRACE_CATEGORY_VITALS, RELOAD_FROM_JS);
   Scope scope(this);
   tasm::TimingCollector::Instance()->Mark(tasm::timing::kReloadBundleStart);
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options, true /*is_major_updated*/);
 
-  LOGI("Lynx ReloadFromJS. url: " << url_);
+  {
+    PipelineScope pipeline_scope(this, pipeline_options,
+                                 true /*is_major_updated*/);
 
-  // get default entry
-  const auto& card = FindEntry(tasm::DEFAULT_ENTRY_NAME);
-  if (card && card->GetVm()) {
-    card->GetVm()->CleanClosuresInCycleReference();
-  }
+    LOGI("Lynx ReloadFromJS. url: " << url_);
 
-  // destroy old components
-  if (EnableFiberArch()) {
+    // get default entry
+    const auto& card = FindEntry(tasm::DEFAULT_ENTRY_NAME);
     if (card && card->GetVm()) {
-      auto& context = card->GetVm();
-      DispatchEventFromEngineToCoreContext(
-          context, kRemoveComponents,
-          runtime::kMessageEventTypeRemoveComponents);
+      card->GetVm()->CleanClosuresInCycleReference();
     }
-  } else {
-    // trigger old components's unmount lifecycle;
-    page_proxy_.RemoveOldComponentBeforeReload();
+
+    // destroy old components
+    if (EnableFiberArch()) {
+      if (card && card->GetVm()) {
+        auto& context = card->GetVm();
+        DispatchEventFromEngineToCoreContext(
+            context, kRemoveComponents,
+            runtime::kMessageEventTypeRemoveComponents);
+      }
+    } else {
+      // trigger old components's unmount lifecycle;
+      page_proxy_.RemoveOldComponentBeforeReload();
+    }
+
+    TemplateData data(task.data_, false);
+    // destroy card and create card instance
+    delegate_.OnJSAppReload(GenerateTemplateDataPostedToJs(data),
+                            pipeline_options);
+
+    UpdatePageOption update_page_option;
+    update_page_option.reload_from_js = true;
+    update_page_option.reload_template = true;
+
+    // update template
+    UpdateTemplate(data, update_page_option, pipeline_options);
   }
-
-  TemplateData data(task.data_, false);
-  // destroy card and create card instance
-  delegate_.OnJSAppReload(GenerateTemplateDataPostedToJs(data),
-                          pipeline_options);
-
-  UpdatePageOption update_page_option;
-  update_page_option.reload_from_js = true;
-  update_page_option.reload_template = true;
-
-  // update template
-  UpdateTemplate(data, update_page_option, pipeline_options);
-  // UpdateTemplate will RequestResolve if needed.
-  RunPixelPipeline();
 
   SendFontScaleChanged(font_scale_);
   tasm::TimingCollector::Instance()->Mark(tasm::timing::kReloadBundleEnd);
@@ -1225,7 +1235,10 @@ void TemplateAssembler::AddFont(const lepus::Value& font) {
 void TemplateAssembler::PushRuntimeValidTid() {
   auto default_entry = FindEntry(tasm::DEFAULT_ENTRY_NAME);
   if (default_entry) {
-    default_entry->GetVm()->PushContextValidTid();
+    auto vm = default_entry->GetVm();
+    if (vm) {
+      vm->PushContextValidTid();
+    }
   }
 }
 
@@ -1267,18 +1280,16 @@ void TemplateAssembler::DidLoadComponent(
   }
 
   if (component_loader_->DispatchOnComponentLoaded(this, component_url)) {
-    PipelineContext* pipeline_context =
-        pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-            pipeline_options);
+    PipelineScope pipeline_scope(this, pipeline_options);
     // TODO(kechenglong): SetNeedsLayout if and only if needed.
     page_proxy()->element_manager()->SetNeedsLayout();
-    if (pipeline_context) {
+    if (auto* pipeline_context =
+            pipeline_context_manager_->GetCurrentPipelineContext()) {
       pipeline_context->RequestResolve();
     } else {
       page_proxy()->element_manager()->OnPatchFinish(pipeline_options);
       page_proxy()->element_manager()->painting_context()->Flush();
     }
-    RunPixelPipeline();
   }
 }
 
@@ -1477,6 +1488,10 @@ void TemplateAssembler::SetPageConfig(
     // pass page config to android/iOS side after VM->Execute()
     // see `SetPageConfig` called by `LoadTemplate/LoadComponent`
     // in template_assembler.cc
+
+    if (page_config_->GetEnableUnifiedPipeline() == TernaryBool::TRUE_VALUE) {
+      pipeline_context_manager_->SetEnableUnifiedPixelPipeline(true);
+    }
   }
 }
 
@@ -1492,11 +1507,40 @@ void TemplateAssembler::ReportError(base::LynxError error) {
 }
 
 void TemplateAssembler::OnScriptingStart() {
-  // TODO(songshourui.null): impl this later
+  // Within the `OnScriptingStart` function, check if
+  // `GetCurrentPipelineContext()` returns null. If empty, this invocation of
+  // `OnScriptingStart` might be triggered by a JS API callback execution. In
+  // such cases, call `CreateAndUpdateCurrentPipelineContext()` to construct a
+  // context for the current pipeline, and set `created_in_on_scripting_start_ =
+  // true` to indicate that this pipeline was initiated by the
+  // `OnScriptingStart` marker.
+  auto* context = pipeline_context_manager_->GetCurrentPipelineContext();
+  if (context != nullptr) {
+    return;
+  }
+
+  if (execute_on_layout_ready_hooks_ != nullptr) {
+    return;
+  }
+
+  std::shared_ptr<PipelineOptions> current_option =
+      std::make_shared<PipelineOptions>();
+  current_option->created_in_on_scripting_start_ = true;
+  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
+      current_option);
 }
 
 void TemplateAssembler::OnScriptingEnd() {
-  // TODO(songshourui.null): impl this later
+  // If the current pipeline was initiated during the OnScriptingStart phase,
+  // invoke RunPixelPipeline to trigger subsequent processes.
+  auto* context = pipeline_context_manager_->GetCurrentPipelineContext();
+  if (context == nullptr) {
+    return;
+  }
+
+  if (context->GetOptions()->created_in_on_scripting_start_) {
+    RunPixelPipeline();
+  }
 }
 
 void TemplateAssembler::ReportGCTimingEvent(const char* start,
@@ -1596,17 +1640,16 @@ void TemplateAssembler::UpdateComponentData(
               });
 
   Scope scope(this);
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
-  LOGI("TemplateAssembler::UpdateComponentData. this:"
-       << this << " url:" << url_
-       << " update_data_type:" << static_cast<uint32_t>(task.type_));
-  ComponentUpdateReporter updateReporter(task, page_proxy_,
-                                         EnableEventReporter());
-  page_proxy_.UpdateComponentData(task.component_id_, task.data_,
-                                  pipeline_options);
-  // UpdateComponentData will RequestResolve if needed.
-  RunPixelPipeline();
+  {
+    PipelineScope pipeline_scope(this, pipeline_options);
+    LOGI("TemplateAssembler::UpdateComponentData. this:"
+         << this << " url:" << url_
+         << " update_data_type:" << static_cast<uint32_t>(task.type_));
+    ComponentUpdateReporter updateReporter(task, page_proxy_,
+                                           EnableEventReporter());
+    page_proxy_.UpdateComponentData(task.component_id_, task.data_,
+                                    pipeline_options);
+  }
 
   delegate_.CallJSApiCallback(task.callback_);
 }
@@ -1629,8 +1672,8 @@ void TemplateAssembler::ElementAnimate(const std::string& component_id,
                                        const std::string& id_selector,
                                        const lepus::Value& args) {
   auto pipeline_option = std::make_shared<PipelineOptions>();
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_option);
+  PipelineScope pipeline_scope(this, pipeline_option);
+
   NodeSelectRoot root = NodeSelectRoot::ByComponentId(component_id);
   NodeSelectOptions options(NodeSelectOptions::IdentifierType::CSS_SELECTOR,
                             id_selector);
@@ -1640,15 +1683,14 @@ void TemplateAssembler::ElementAnimate(const std::string& component_id,
     return;
   }
   elements[0]->Animate(args, pipeline_option);
-  this->RunPixelPipeline();
 }
 
 void TemplateAssembler::ElementAnimateV2(const std::string& component_id,
                                          const std::string& id_selector,
                                          const lepus::Value& args) {
   auto pipeline_option = std::make_shared<PipelineOptions>();
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_option);
+  PipelineScope pipeline_scope(this, pipeline_option);
+
   NodeSelectRoot root = NodeSelectRoot::ByComponentId(component_id);
   NodeSelectOptions options(NodeSelectOptions::IdentifierType::CSS_SELECTOR,
                             id_selector);
@@ -1658,7 +1700,6 @@ void TemplateAssembler::ElementAnimateV2(const std::string& component_id,
     return;
   }
   elements[0]->AnimateV2(args, pipeline_option);
-  this->RunPixelPipeline();
 }
 
 void TemplateAssembler::GetComponentContextDataAsync(
@@ -1768,6 +1809,11 @@ void TemplateAssembler::TriggerLepusGlobalEvent(const std::string& event_name,
   if (!template_loaded_) {
     return;
   }
+
+  std::shared_ptr<PipelineOptions> current_option =
+      std::make_shared<PipelineOptions>();
+  tasm::PipelineScope pipeline_scope(this, current_option);
+
   SendGlobalEventToLepus(event_name, std::move(msg));
   LOGI("TemplateAssembler TriggerLepusGlobalEvent event" << event_name
                                                          << " this:" << this);
@@ -1798,6 +1844,9 @@ void TemplateAssembler::TriggerWorkletFunction(std::string component_id,
   }
 
   EnsureTouchEventHandler();
+  std::shared_ptr<PipelineOptions> current_option =
+      std::make_shared<PipelineOptions>();
+  tasm::PipelineScope pipeline_scope(this, current_option);
 
   std::optional<lepus::Value> call_result =
       worklet::LepusElement::TriggerWorkletFunction(
@@ -1812,6 +1861,9 @@ void TemplateAssembler::TriggerWorkletFunction(std::string component_id,
 
 void TemplateAssembler::Destroy() {
   LOGI("TemplateAssembler::Destroy url:" << url_ << " this:" << this);
+
+  EnsureOnLayoutReadyHooksFinish();
+
   destroyed_ = true;
   page_proxy_.Destroy();
   signal_context_.WillDestroy();
@@ -1938,6 +1990,10 @@ void TemplateAssembler::OnPseudoStatusChanged(int32_t id, uint32_t pre_status,
   DCHECK(current_status >= 0 &&
          current_status <= std::numeric_limits<PseudoState>::max());
   EnsureTouchEventHandler();
+  std::shared_ptr<PipelineOptions> current_option =
+      std::make_shared<PipelineOptions>();
+  PipelineScope pipeline_scope(this, current_option);
+
   touch_event_handler_->HandlePseudoStatusChanged(
       id, static_cast<PseudoState>(pre_status),
       static_cast<PseudoState>(current_status));
@@ -2090,8 +2146,7 @@ void TemplateAssembler::UpdateDataByPreParsedData(
     return;
   }
 
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
+  PipelineScope pipeline_scope(this, pipeline_options);
 
   if (page_proxy_.HasSSRRadonPage()) {
     LOGI("TemplateAssembler::Update Data for SSR");
@@ -2141,7 +2196,7 @@ void TemplateAssembler::UpdateDataByPreParsedData(
     UpdateTemplate(data, update_page_option, pipeline_options);
 
     // UpdateTemplate will RequestResolve if needed.
-    RunPixelPipeline();
+    pipeline_scope.Exit();
 
     if (pre_painting_) {
       OnNativeAppReady();
@@ -2197,8 +2252,8 @@ void TemplateAssembler::UpdateDataByJS(
                 ctx.event()->add_debug_annotations("stacks", stacks);
               });
 
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
+  PipelineScope pipeline_scope(this, pipeline_options);
+
   LOGI("TemplateAssembler::UpdateDataByJS this:"
        << this << " url:" << url_
        << " update_data_type:" << static_cast<uint32_t>(task.type_));
@@ -2219,9 +2274,6 @@ void TemplateAssembler::UpdateDataByJS(
     // data.value_.Table()->dump();
     delegate_.OnDataUpdated();
   }
-
-  // UpdateGlobalDataInternal will RequestResolve if needed.
-  RunPixelPipeline();
 }
 
 bool TemplateAssembler::FromBinary(const std::shared_ptr<TemplateEntry>& entry,
@@ -2461,6 +2513,29 @@ std::string TemplateAssembler::GetTargetUrl(const std::string& current,
     url = target_iter->second;
   }
   return url;
+}
+
+void TemplateAssembler::FetchBundle(
+    const std::string& bundle_url,
+    const std::shared_ptr<runtime::ResponsePromise<BundleResourceInfo>>&
+        response_promise) {
+  TRACE_EVENT(LYNX_TRACE_CATEGORY_VITALS, TEMPLATE_ASSEMBLER_FETCH_BUNDLE,
+              "bundle_url", bundle_url);
+  // TODO(nihao.royal): replacing with bundle manager.
+  auto entry = FindTemplateEntry(bundle_url);
+  if (entry) {
+    // bundle already loaded;
+    response_promise->SetValue(
+        {.url = bundle_url, .code = LYNX_BUNDLE_RESOURCE_INFO_SUCCESS});
+  } else {
+    base::TaskRunnerManufactor::PostTaskToConcurrentLoop(
+        [bundle_url, promise = std::move(response_promise)]() mutable {
+          // TODO(@nihao.royal): invoke LazyBundleLoader to retrieve result.
+          promise->SetValue({.url = std::move(bundle_url),
+                             .code = LYNX_BUNDLE_RESOURCE_INFO_SUCCESS});
+        },
+        base::ConcurrentTaskType::NORMAL_PRIORITY);
+  }
 }
 
 std::shared_ptr<TemplateEntry> TemplateAssembler::RequireTemplateEntry(
@@ -2872,11 +2947,9 @@ void TemplateAssembler::SetCSSVariables(
     const std::string& component_id, const std::string& id_selector,
     const lepus::Value& properties,
     std::shared_ptr<PipelineOptions>& pipeline_options) {
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      pipeline_options);
+  PipelineScope pipeline_scope(this, pipeline_options);
   page_proxy()->SetCSSVariables(component_id, id_selector, properties,
                                 pipeline_options);
-  this->RunPixelPipeline();
 }
 
 void TemplateAssembler::SetNativeProps(
@@ -2903,13 +2976,12 @@ void TemplateAssembler::SetNativeProps(
   for (auto ele : elements) {
     // Each element for setNativeProps should starts a new pixelPipeline,
     // so we need to make sure that a new pipeline option is used.
-    auto pipeline_option = std::make_shared<PipelineOptions>(*pipeline_options);
-    pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-        pipeline_option);
+    auto new_pipeline_option =
+        std::make_shared<PipelineOptions>(*pipeline_options);
+    PipelineScope pipeline_scope(this, new_pipeline_option);
     if (ele != nullptr) {
-      ele->SetNativeProps(native_props, pipeline_option);
+      ele->SetNativeProps(native_props, new_pipeline_option);
     }
-    this->RunPixelPipeline();
   }
 }
 
@@ -3148,13 +3220,14 @@ void TemplateAssembler::RenderPageWithSSRData(
 
   Scope scope(this);
   page_proxy_.ResetHydrateInfo();
-
-  if (!ssr::SSRRenderUtils::DecodeSSRData(this, std::move(ssr_byte_array),
-                                          template_data, pipeline_options,
-                                          GetInstanceId())) {
-    return;
+  {
+    PipelineScope pipeline_scope(this, pipeline_options);
+    if (!ssr::SSRRenderUtils::DecodeSSRData(this, std::move(ssr_byte_array),
+                                            template_data, pipeline_options,
+                                            GetInstanceId())) {
+      return;
+    }
   }
-
   template_loaded_ = true;
 
   auto card = FindEntry(tasm::DEFAULT_ENTRY_NAME);
@@ -3168,6 +3241,14 @@ void TemplateAssembler::RenderPageWithSSRData(
 }
 
 Themed& TemplateAssembler::Themed() { return page_proxy_.themed(); }
+
+lepus::Value TemplateAssembler::CallLepusMethod(
+    const lepus::Value& closure, const std::vector<lepus::Value>& args) {
+  lepus::Value value =
+      GetLepusContext(DEFAULT_ENTRY_NAME)->CallClosureArgs(closure, args);
+
+  return value;
+}
 
 void TemplateAssembler::CallLepusMethod(const std::string& method_name,
                                         lepus::Value args,
@@ -3188,13 +3269,12 @@ void TemplateAssembler::CallLepusMethod(const std::string& method_name,
 
   std::shared_ptr<PipelineOptions> current_option =
       std::make_shared<PipelineOptions>();
-  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(
-      current_option);
+  PipelineScope pipeline_scope(this, current_option);
 
   const auto ret_value =
       GetLepusContext(tasm::DEFAULT_ENTRY_NAME)->Call(method_name, args);
 
-  RunPixelPipeline();
+  pipeline_scope.Exit();
 
   if (callback.IsValid()) {
     delegate_.CallJSApiCallbackWithValue(callback, ret_value);
@@ -3318,6 +3398,35 @@ bool TemplateAssembler::LoadTemplateForSSRRuntime(std::vector<uint8_t> source) {
   return true;
 }
 
+void TemplateAssembler::RequestLayout(
+    const std::shared_ptr<PipelineOptions>& pipeline_options) {
+  TRACE_EVENT(LYNX_TRACE_CATEGORY, "TemplateAssembler::RequestLayout");
+  if (page_proxy()->element_manager()->IsLayoutInElementModeOn()) {
+    auto data =
+        page_proxy()->element_manager()->RequestLayout(pipeline_options);
+    GetCurrentPipelineContext()->RequestFlushUIOperation();
+    OnLayoutAfter(data);
+    return;
+  }
+
+  if (pipeline_options->render_for_recreate_engine) {
+    page_proxy()
+        ->element_manager()
+        ->painting_context()
+        ->MarkUIOperationQueueFlushForRecreateEngine(false);
+  }
+
+  if (pipeline_options->need_timestamps) {
+    page_proxy()
+        ->element_manager()
+        ->painting_context()
+        ->MarkUIOperationQueueFlushTiming(
+            tasm::timing::kPaintingUiOperationExecuteEnd,
+            pipeline_options->pipeline_id);
+  }
+  layout_scheduler_.RequestLayout(pipeline_options);
+}
+
 // starts run pixel pipeline process;
 // TODO(@yangguangzhao.solace): The same context is only allowed to enter the
 // pixel pipeline once, controlled by its lifecycle state.
@@ -3326,7 +3435,6 @@ void TemplateAssembler::RunPixelPipeline() {
   if (!current_pipeline_context ||
       !current_pipeline_context->GetOptions()->enable_unified_pixel_pipeline) {
     // quick rejection for pixel pipeline;
-    pipeline_context_manager_->ResetCurrentPipelineContext();
     return;
   }
 
@@ -3349,18 +3457,18 @@ void TemplateAssembler::RunPixelPipeline() {
   // TODO(@yangguangzhao.solace): Advance Pipeline Lifecycle State;
   if (current_pipeline_context->IsLayoutRequested()) {
     TRACE_EVENT(LYNX_TRACE_CATEGORY, LYNX_PIPELINE_TRIGGER_LAYOUT);
-    if (pipeline_option->need_timestamps) {
-      page_proxy()
-          ->element_manager()
-          ->painting_context()
-          ->MarkUIOperationQueueFlushTiming(
-              tasm::timing::kPaintingUiOperationExecuteEnd,
-              pipeline_option->pipeline_id);
-    }
+    // Current context may be reset in layout job, so we need to reset
+    // layout_requested flag here.
+    current_pipeline_context->ResetLayoutRequested();
+
     // Execute Layout Job.
     // Maybe Happened On Layout Thread. Trigger layout by engine here;
-    layout_scheduler_.RequestLayout(pipeline_option);
-    current_pipeline_context->ResetLayoutRequested();
+    RequestLayout(pipeline_option);
+  } else {
+    PipelineLayoutData layout_data{
+        .layout_triggered = false,
+        .pipeline_version = pipeline_option->version};
+    OnLayoutAfter(layout_data);
   }
 
   // Trigger DataUpdated If Needed;
@@ -3376,12 +3484,66 @@ void TemplateAssembler::RunPixelPipeline() {
   }
 }
 
+void TemplateAssembler::ExecuteOnLayoutReadyHooks() {
+  TRACE_EVENT(LYNX_TRACE_CATEGORY,
+              TEMPLATE_ASSEMBLER_EXECUTE_ON_LAYOUT_READY_HOOKS);
+
+  if (on_layout_ready_hooks_.empty()) {
+    return;
+  }
+
+  auto options = std::make_shared<PipelineOptions>();
+  pipeline_context_manager_->CreateAndUpdateCurrentPipelineContext(options);
+
+  auto tasks = std::move(on_layout_ready_hooks_);
+  on_layout_ready_hooks_.clear();
+
+  std::promise<void> promise;
+  std::future<void> future = promise.get_future();
+
+  execute_on_layout_ready_hooks_ = fml::MakeRefCounted<base::OnceTask<void>>(
+      [tasks = std::move(tasks), promise = std::move(promise)]() mutable {
+        TRACE_EVENT(LYNX_TRACE_CATEGORY,
+                    TEMPLATE_ASSEMBLER_ASYNC_EXECUTE_ON_LAYOUT_READY_HOOKS);
+        for (auto& task : tasks) {
+          task();
+        }
+        promise.set_value();
+      },
+      std::move(future));
+
+  base::TaskRunnerManufactor::PostTaskToConcurrentLoop(
+      [once_task = execute_on_layout_ready_hooks_]() { once_task->Run(); },
+      base::ConcurrentTaskType::HIGH_PRIORITY);
+}
+
+void TemplateAssembler::EnsureOnLayoutReadyHooksFinish() {
+  TRACE_EVENT(LYNX_TRACE_CATEGORY,
+              TEMPLATE_ASSEMBLER_ENSURE_ON_LAYOUT_READY_HOOKS_FINISH);
+
+  if (execute_on_layout_ready_hooks_ == nullptr) {
+    return;
+  }
+  execute_on_layout_ready_hooks_->Run();
+  execute_on_layout_ready_hooks_->GetFuture().get();
+  execute_on_layout_ready_hooks_ = nullptr;
+
+  RunPixelPipeline();
+}
+
 void TemplateAssembler::OnLayoutAfter(PipelineLayoutData& layout_data) {
-  auto* current_pipeline_context = GetCurrentPipelineContext();
+  TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_ASSEMBLER_ENSURE_ON_LAYOUT_AFTER);
+
+  ExecuteOnLayoutReadyHooks();
+
+  if (!layout_data.pipeline_version) {
+    return;
+  }
+  auto* current_pipeline_context =
+      pipeline_context_manager_->GetPipelineContextByVersion(
+          *layout_data.pipeline_version);
   if (!current_pipeline_context ||
       !current_pipeline_context->GetOptions()->enable_unified_pixel_pipeline) {
-    // quick rejection for pixel pipeline;
-    pipeline_context_manager_->ResetCurrentPipelineContext();
     return;
   }
 
@@ -3416,9 +3578,12 @@ void TemplateAssembler::OnLayoutAfter(PipelineLayoutData& layout_data) {
   if (tasm::performance::MemoryMonitor::Enable()) {
     auto* node_manager = page_proxy()->element_manager()->node_manager();
     int32_t count = static_cast<int32_t>(node_manager->NodeCount());
-    float mem_size_byte = node_manager->GetTotalMemoryUsage();
-    delegate_.ReportElementMemoryInfo(mem_size_byte, count);
+    int64_t mem_size_bytes = node_manager->GetTotalMemoryUsage();
+    delegate_.ReportElementMemoryInfo(mem_size_bytes, count);
   }
+
+  pipeline_context_manager_->RemovePipelineContextByVersion(
+      current_pipeline_context->GetVersion());
 
   // TODO(@yangguangzhao.solace): Advance Pipeline Lifecycle State;
 }

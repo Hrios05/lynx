@@ -62,10 +62,13 @@ group("lynx_android_lib") {
     "../../../core/resource",
     "../../../core/runtime",
     "../../../core/runtime/bindings/common/event:runtime_common",
+    "../../../core/runtime/bindings/common/resource:promise",
     "../../../core/runtime/bindings/jsi/event:js_runtime",
     "../../../core/runtime/bindings/jsi/interceptor:network_interceptor",
+    "../../../core/runtime/bindings/jsi/resource:js_runtime",
     "../../../core/runtime/bindings/lepus",
     "../../../core/runtime/bindings/lepus/event:lepus_runtime",
+    "../../../core/runtime/bindings/lepus/resource:lepus_runtime",
     "../../../core/runtime/vm/lepus:lepus",
     "../../../core/runtime/vm/lepus:lepus_ng",
     "../../../core/services/event_report:event_report",
@@ -137,10 +140,7 @@ config("lynx_android_public_config") {
   if (enable_inspector) {
     defines += [ "EXPORT_SYMBOLS_FOR_DEVTOOL=1" ]
   }
-  include_dirs = [
-    "//core",
-    "//core/build/gen",
-  ]
+  include_dirs = [ "//core" ]
   cflags = []
   cflags += [
     "-fno-short-enums",

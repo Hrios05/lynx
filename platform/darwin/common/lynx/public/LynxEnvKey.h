@@ -48,6 +48,7 @@ typedef NS_ENUM(uint64_t, LynxEnvKey) {
   LynxEnvEnableTextLayerRender,
   LynxEnvEnableCreateUIAsync,
   LynxEnvEnableImageEventReport,
+  LynxEnvEnableImageAsyncLayout,
   LynxEnvEnableGenericResourceFetcher,
   LynxEnvEnableAnimationSyncTimeOpt,
   LynxEnvFixNewImageDownSampling,
@@ -57,6 +58,7 @@ typedef NS_ENUM(uint64_t, LynxEnvKey) {
   LynxEnvEnableTextStorageDeallocFix,
   LynxEnvEnableJSGroupThreadByDefault,
   LynxEnvEnableTextLayoutCache,
+  LynxEnvEnableForceMemoryMonitorOnOom,
 
   // Please add new enum values above
   LynxEnvKeyEndMark,  // Keep this as the last enum value, and do not use

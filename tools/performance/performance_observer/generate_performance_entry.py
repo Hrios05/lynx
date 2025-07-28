@@ -6,6 +6,7 @@ import os
 from sub_generator.ts_generator import generate_ts
 from sub_generator.java_generator import generate_java, generate_java_converter
 from sub_generator.oc_generator import generate_objc_interface, generate_objc_implementation, generate_objc_converter, generate_objc_converter_header
+from sub_generator.ets_generator import generate_ets_class, generate_ets_converter
 from utils import *
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +16,7 @@ ts_output_file_path = os.path.abspath(os.path.join(base_dir, '../../../js_librar
 java_output_file_path = os.path.abspath(os.path.join(base_dir, '../../../platform/android/lynx_android/src/main/java/com/lynx/tasm/performance/performanceobserver'))
 objc_header_output_file_path = os.path.abspath(os.path.join(base_dir, '../../../platform/darwin/common/lynx/public/performance/performance_observer'))
 objc_impl_output_file_path = os.path.abspath(os.path.join(base_dir, '../../../platform/darwin/common/lynx/performance/performance_observer'))
+ets_output_file_path = os.path.abspath(os.path.join(base_dir, '../../../platform/harmony/lynx_harmony/src/main/ets/tasm/gen/performance/performanceobserver'))
 converter_name = 'PerformanceEntryConverter'
 entry_mapping = {}
 
@@ -47,11 +49,14 @@ def generate_java_code(yaml_files):
         java_imports = []
         for class_name, definition in list(items.items()):
             # Handle special characters to generate ignore rules.
-            tsOnly = False
-            if 'x-ts-only' in definition:
-                tsOnly = definition['x-ts-only']
+            enableJava = True
+            if ('x-lang' in definition):
+                enableJava = 'java' in definition['x-lang']
 
-            if not tsOnly:
+            if enableJava:
+                if class_name.startswith("Android"):
+                    class_name = class_name[7:]
+
                 # Generate java code
                 java_code = generate_java(class_name, definition, java_imports)
                 if java_code:
@@ -84,11 +89,14 @@ def generate_objc_code(yaml_files):
         objc_implementations_imports = []
         for class_name, definition in list(items.items()):
             # Handle special characters to generate ignore rules.
-            tsOnly = False
-            if 'x-ts-only' in definition:
-                tsOnly = definition['x-ts-only']
+            enableObjc= True
+            if ('x-lang' in definition):
+                enableObjc = 'objc' in definition['x-lang']
 
-            if not tsOnly:
+            if enableObjc:
+                if class_name.startswith("IOS"):
+                    class_name = class_name[3:]
+
                 # Generate objc header code
                 objc_header = generate_objc_interface(class_name, definition, objc_imports)
                 if objc_header:
@@ -127,13 +135,52 @@ def generate_ts_code(yaml_files):
         items = read_yaml_file(os.path.join(base_dir, yaml_file))
 
         for class_name, definition in list(items.items()):
-            ts_interface = generate_ts(class_name, definition, items)
-            ts_interfaces.append(ts_interface)
+            enableTs= True
+            if ('x-lang' in definition):
+                enableTs = 'ts' in definition['x-lang']
+
+            if enableTs:
+                ts_interface = generate_ts(class_name, definition, items)
+                ts_interfaces.append(ts_interface)
+
     # Generate ts Interface
     ts_output = get_license(2024)
     ts_output += '\n'.join(ts_interfaces)
     ts_file_name = 'lynx-performance-entry.d.ts'
     write_file(os.path.join(ts_output_file_path, ts_file_name), ts_output)
+
+def generate_ets_code(yaml_files):
+    remove_exist_dirs(ets_output_file_path)
+    for yaml_file in yaml_files:
+        items = read_yaml_file(os.path.join(base_dir, yaml_file))
+        ets_codes = []
+        ets_imports = []
+        for class_name, definition in list(items.items()):
+            # Handle special characters to generate ignore rules.
+            enableEts = True
+            if 'x-lang' in definition:
+                enableEts = 'arkts' in definition['x-lang']
+            if enableEts:
+                if class_name.startswith("Harmony"):
+                    class_name = class_name[7:]
+                # write impl file
+                ets_code = generate_ets_class(class_name, definition, ets_imports)
+                if ets_code:
+                    ets_codes.append(ets_code)
+                # write file
+                ets_output = get_license(2025)
+                if(not ets_imports) and (ets_codes != []):
+                    ets_output += '\n'.join(ets_codes)
+                    write_file(os.path.join(ets_output_file_path, f'{class_name}.ets'), ets_output)
+                elif (ets_codes != []):
+                    ets_output += '\n'.join(ets_imports) + '\n\n' + '\n'.join(ets_codes)
+                    write_file(os.path.join(ets_output_file_path, f'{class_name}.ets'), ets_output)
+    # Generate PerformanceEntryConverter
+    ets_converter_imports = []
+    ets_converter_code = generate_ets_converter(entry_mapping, ets_converter_imports)
+    ets_output = get_license(2025)
+    ets_output += '\n'.join(ets_converter_imports) + '\n\n' + ets_converter_code
+    write_file(os.path.join(ets_output_file_path, f'{converter_name}.ets'), ets_output)
 
 def main(yaml_files_list_file):
     with open(yaml_files_list_file, "r") as file:
@@ -143,6 +190,7 @@ def main(yaml_files_list_file):
     generate_ts_code(yaml_files)
     generate_java_code(yaml_files)
     generate_objc_code(yaml_files)
+    generate_ets_code(yaml_files)
 
 if __name__ == "__main__":
     main(os.path.join(base_dir, "performance_entry_definition_files"))

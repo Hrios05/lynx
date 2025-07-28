@@ -14,6 +14,7 @@
 #include "core/renderer/dom/fiber/block_element.h"
 #include "core/renderer/utils/lynx_env.h"
 #include "core/services/recorder/recorder_controller.h"
+#include "core/services/recorder/testbench_base_recorder.h"
 #include "core/services/replay/replay_controller.h"
 #include "core/services/replay/testbench_test_replay.h"
 #include "devtool/base_devtool/native/test/message_sender_mock.h"
@@ -55,7 +56,7 @@ class DevToolMediatorTest : public ::testing::Test {
     devtool_mediator_->ui_executor_ =
         std::make_shared<devtool::InspectorUIExecutor>(devtool_mediator_);
     devtool_mediator_->element_executor_ =
-        std::make_shared<devtool::InspectorTasmExecutor>(devtool_mediator_);
+        std::make_shared<devtool::InspectorTasmExecutor>(devtool_mediator_, 1);
     facade_ = std::make_shared<testing::DevToolPlatformFacadeMock>();
     devtool_mediator_->devtool_executor_->SetDevToolPlatformFacade(facade_);
     devtool_mediator_->ui_executor_->SetDevToolPlatformFacade(facade_);

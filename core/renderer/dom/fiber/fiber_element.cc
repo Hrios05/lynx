@@ -96,7 +96,7 @@ FiberElement::FiberElement(const FiberElement &element,
     : Element(element, clone_resolved_props),
       invalidation_lists_(element.invalidation_lists_),
       parent_component_unique_id_(element.parent_component_unique_id_),
-      dirty_(element.dirty_ | kDirtyCreated),
+      dirty_(element.dirty_ | kDirtyCreated | kDirtyCloned),
       css_id_(element.css_id_),
       dynamic_style_flags_(element.dynamic_style_flags_),
       has_extreme_parsed_styles_(element.has_extreme_parsed_styles_),
@@ -435,7 +435,11 @@ void FiberElement::UpdateSimpleStyles(const tasm::StyleMap &style_map) {
         if (pair.second.IsEmpty()) {
           ResetSimpleStyle(pair.first);
         } else {
-          this->SetStyleInternal(pair.first, pair.second);
+          if (pair.first == kPropertyIDFontSize) {
+            SetFontSize(pair.second);
+          } else {
+            this->SetStyleInternal(pair.first, pair.second);
+          }
         }
       });
   EXEC_EXPR_FOR_INSPECTOR(
@@ -1071,6 +1075,20 @@ void FiberElement::ResolveCSSStyles(
     dirty_ &= ~kDirtyPropagateInherited;
   }
 
+  // Process update_map for cloned elements.
+  if (dirty_ & kDirtyCloned) {
+    // Because cloned elements typically do not undergo style changes,
+    // animation-related styles must be reapplied to initiate keyframe or
+    // transition animations.
+    for (const auto &pair : parsed_styles_map_) {
+      if (CSSProperty::IsTransitionProps(pair.first) ||
+          CSSProperty::IsKeyframeProps(pair.first)) {
+        parsed_styles.insert_or_assign(pair.first, pair.second);
+      }
+    }
+    dirty_ &= ~kDirtyCloned;
+  }
+
   // Process reset before update styles.
 
   // If the new animator is activated and this element has been created
@@ -1127,7 +1145,8 @@ void FiberElement::ResolveCSSStyles(
     // need to record some necessary styles which New Animator transition
     // needs, and it needs to be saved before rtl converted logic.
     ResetElementPreviousStyle(id);
-    ResetStyleInternal(id);
+    auto direction_aware_pair = ConvertRtlCSSPropertyID(id);
+    ResetStyleInternal(direction_aware_pair.second);
     need_update = true;
   }
 
@@ -1306,7 +1325,7 @@ void FiberElement::ResolveCSSStyles(
           should_update_em_rem_style(*iter, root_font_size_changed) &&
           update_map.find(CSSPropertyID::kPropertyIDFontSize) ==
               update_map.end()) {
-        SetFontSize();
+        SetFontSize(iter->second);
         need_update = true;
       }
 
@@ -1699,6 +1718,9 @@ void FiberElement::PostResolveTaskToThreadPool(
   EnsureTagInfo();
   // Decode first
   GetRelatedCSSFragment();
+  if (is_component()) {
+    static_cast<ComponentElement *>(this)->GetCSSFragment();
+  }
 
   std::promise<ParallelFlushReturn> promise;
   std::future<ParallelFlushReturn> future = promise.get_future();
@@ -2158,7 +2180,10 @@ void FiberElement::ConsumeStyleInternal(
   }
 
   // Handle font-size first. Other css may use this to calc rem or em.
-  SetFontSize();
+  const auto it = parsed_styles_map_.find(CSSPropertyID::kPropertyIDFontSize);
+  CSSValue font_value =
+      (it != parsed_styles_map_.end()) ? it->second : CSSValue::Empty();
+  SetFontSize(font_value);
 
   auto consume_func = [this, should_skip = std::move(should_skip)](
                           const StyleMap &styles, bool process_inherit) {
@@ -2932,11 +2957,10 @@ bool FiberElement::ResolveStyleValue(CSSPropertyID id,
   return resolve_success;
 }
 
-void FiberElement::SetFontSize() {
+void FiberElement::SetFontSize(const tasm::CSSValue &value) {
   base::flex_optional<float> result;
-  if (auto it = parsed_styles_map_.find(CSSPropertyID::kPropertyIDFontSize);
-      it != parsed_styles_map_.end()) {
-    CheckDynamicUnit(CSSPropertyID::kPropertyIDFontSize, it->second, false);
+  if (!value.IsEmpty()) {
+    CheckDynamicUnit(CSSPropertyID::kPropertyIDFontSize, value, false);
     // Take care: GetParentFontSize() here is used to computed em, so it must be
     // parent's fontSize.z
     const auto &env_config = element_manager()->GetLynxEnvConfig();
@@ -2951,7 +2975,7 @@ void FiberElement::SetFontSize() {
             ? env_config.ViewportHeight()
             : env_config.vhbase_for_font_size_to_align_with_legacy_bug();
     result = starlight::CSSStyleUtils::ResolveFontSize(
-        it->second, env_config, vw_base, vh_base, GetParentFontSize(),
+        value, env_config, vw_base, vh_base, GetParentFontSize(),
         GetRecordedRootFontSize(), element_manager()->GetCSSParserConfigs());
   } else {
     result = GetParentFontSize();
@@ -3020,6 +3044,7 @@ void FiberElement::InsertLayoutNode(FiberElement *child, FiberElement *ref) {
     child->EnsureSLNode();
     sl_node_->InsertChildBefore(child->sl_node_.get(),
                                 ref ? ref->sl_node_.get() : nullptr);
+    child->attached_to_layout_parent_ = true;
     return;
   }
 
@@ -3241,6 +3266,14 @@ void FiberElement::OnPseudoStatusChanged(PseudoState prev_status,
               [this](lynx::perfetto::EventContext ctx) {
                 UpdateTraceDebugInfo(ctx.event());
               });
+  auto current_context =
+      element_manager_->element_manager_delegate()->GetCurrentPipelineContext();
+  std::shared_ptr<PipelineOptions> pipeline_options;
+  if (current_context) {
+    pipeline_options = current_context->GetOptions();
+  } else {
+    pipeline_options = std::make_shared<PipelineOptions>();
+  }
   // FIXME: Every element will emit the OnPseudoStatusChanged event
   auto *css_fragment = GetRelatedCSSFragment();
   if (css_fragment && css_fragment->enable_css_selector()) {
@@ -3257,8 +3290,7 @@ void FiberElement::OnPseudoStatusChanged(PseudoState prev_status,
         MarkStyleDirty(false);
       }
       InvalidateChildren(invalidation_set);
-      auto pipeline_options = std::make_shared<PipelineOptions>();
-      element_manager_->OnPatchFinish(pipeline_options, this);
+      element_manager_->RequestResolve(pipeline_options);
     }
     return;
   }
@@ -3274,8 +3306,7 @@ void FiberElement::OnPseudoStatusChanged(PseudoState prev_status,
   has_extreme_parsed_styles_ = false;
 
   data_model_->SetPseudoState(current_status);
-  auto pipeline_options = std::make_shared<PipelineOptions>();
-  element_manager_->OnPatchFinish(pipeline_options, this);
+  element_manager_->RequestResolve(pipeline_options);
 }
 
 bool FiberElement::IsInheritable(CSSPropertyID id) const {
@@ -4001,6 +4032,30 @@ void FiberElement::SetMeasureFunc(void *context,
                                   starlight::SLMeasureFunc measure_func) {
   sl_node_->SetContext(context);
   sl_node_->SetSLMeasureFunc(std::move(measure_func));
+}
+
+void FiberElement::SetAlignmentFunc(void *context,
+                                    starlight::SLAlignmentFunc alignment_func) {
+  sl_node_->SetSLAlignmentFunc(std::move(alignment_func));
+}
+
+/**
+ * Reference {@link LayoutContext#DispatchLayoutBeforeRecursively }
+ */
+void FiberElement::DispatchLayoutBeforeRecursively() {
+  if (!is_wrapper()) {
+    if (sl_node_ == nullptr || !(sl_node_->IsDirty())) {
+      return;
+    }
+
+    if (sl_node_->GetSLMeasureFunc()) {
+      DispatchLayoutBefore();
+    }
+  }
+
+  for (auto &child : scoped_children_) {
+    child->DispatchLayoutBeforeRecursively();
+  }
 }
 
 #if ENABLE_TRACE_PERFETTO

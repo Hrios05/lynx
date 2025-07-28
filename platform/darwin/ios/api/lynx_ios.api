@@ -110,7 +110,7 @@ public class LineSpacingAdaptation : NSObject, <NSLayoutManagerDelegate> {
   public CGFloat LineSpacingAdaptation::maxLineDescender maxLineDescender;
   public BOOL LineSpacingAdaptation::enableLayoutRefactor enableLayoutRefactor;
   public LynxVerticalAlign LineSpacingAdaptation::textSingleLineVerticalAlign textSingleLineVerticalAlign;
-  public NSMutableAttributedString* LineSpacingAdaptation::attributedString attributedString;
+  public NSAttributedString* LineSpacingAdaptation::attributedString attributedString;
   public CGFloat LineSpacingAdaptation::baseline baseline;
 }
 
@@ -135,6 +135,7 @@ public protocol LUIBodyView-p : <NSObject>, <LUIErrorHandling> {
   public void LUIBodyView-p::setAttachLynxPageUICallback:(attachLynxPageUI _Nonnull callback);
   public LynxThreadStrategyForRender LUIBodyView-p::getThreadStrategyForRender();
   public void LUIBodyView-p::runOnTasmThread:(dispatch_block_t _Nonnull task);
+  public LynxViewBuilderBlock LUIBodyView-p::getLynxViewBuilderBlock();
 }
 
 public protocol LUIConfig-p : <NSObject> {
@@ -222,6 +223,16 @@ public class LynxAnimationTransformRotation : NSObject {
   public CGFloat LynxAnimationTransformRotation::rotationY rotationY;
   public CGFloat LynxAnimationTransformRotation::rotationZ rotationZ;
   public BOOL LynxAnimationTransformRotation::isEqualToTransformRotation:(LynxAnimationTransformRotation *transformRotation);
+}
+
+public class LynxAttributedTextBundle : NSObject {
+  public NSAttributedString* LynxAttributedTextBundle::attributedString attributedString;
+  public LynxTextStyle* LynxAttributedTextBundle::textStyle textStyle;
+  public NSSet* LynxAttributedTextBundle::inlineElementSigns inlineElementSigns;
+  public LynxTextOverflowType LynxAttributedTextBundle::textOverflow textOverflow;
+  public LynxOverflow LynxAttributedTextBundle::overflow overflow;
+  public LynxWhiteSpaceType LynxAttributedTextBundle::whiteSpace whiteSpace;
+  public NSInteger LynxAttributedTextBundle::maxLineNum maxLineNum;
 }
 
 public class LynxBackgroundCapInsets : NSObject {
@@ -439,10 +450,12 @@ public class LynxBackgroundRuntime : NSObject {
   public LynxDevtool * LynxBackgroundRuntime()::devtool();
   public BOOL LynxBackgroundRuntime()::attachToLynxView();
   public void LynxBackgroundRuntime()::setRuntimeObserver:(const std::shared_ptr< lynx::piper::InspectorRuntimeObserverNG > &observer);
+  public void LynxBackgroundRuntime()::onEvaluateJavaScriptEnd:(NSString *url);
 }
 
 public protocol LynxBackgroundRuntimeLifecycle-p : <NSObject> {
   public void LynxBackgroundRuntimeLifecycle-p::runtime:didRecieveError:(LynxBackgroundRuntime *runtime,[didRecieveError] NSError *error);
+  public void LynxBackgroundRuntimeLifecycle-p::runtime:didEvaluateJavaScriptEnd:(LynxBackgroundRuntime *runtime,[didEvaluateJavaScriptEnd] NSString *url);
 }
 
 public class LynxBackgroundRuntimeOptions : NSObject {
@@ -582,6 +595,7 @@ public class LynxBaseGestureHandler : NSObject {
 public protocol LynxBaseInspectorOwner-p : <NSObject> {
   public nonnull instancetype LynxBaseInspectorOwner-p::initWithLynxView:(nullable LynxView *view);
   public void LynxBaseInspectorOwner-p::setReloadHelper:(nullable LynxPageReloadHelper *reloadHelper);
+  public void LynxBaseInspectorOwner-p::setDebugInfoInterceptor:(nonnull id< LynxDebugInfoRecorderProtocol > debugInfoRecorder);
   public void LynxBaseInspectorOwner-p::onTemplateAssemblerCreated:(intptr_t ptr);
   public void LynxBaseInspectorOwner-p::handleLongPress();
   public void LynxBaseInspectorOwner-p::stopCasting();
@@ -1112,6 +1126,11 @@ public protocol LynxDebuggerProtocol-p : <NSObject> {
   public void LynxDebuggerProtocol-p::setOpenCardCallback:(LynxOpenCardCallback callback);
 }
 
+public protocol LynxDebugInfoRecorderProtocol-p : <NSObject> {
+  public void LynxDebugInfoRecorderProtocol-p::setDebugInfo:debugInfo:(NSString *url,[debugInfo] NSString *debugInfo);
+  public NSString * LynxDebugInfoRecorderProtocol-p::getDebugInfo:(NSString *url);
+}
+
 public class LynxDefaultGestureHandler : LynxBaseGestureHandler {
 }
 
@@ -1158,6 +1177,30 @@ public class LynxDevToolUtils : NSObject {
 
 public protocol LynxDynamicComponentFetcher-p : <NSObject> {
   public void LynxDynamicComponentFetcher-p::loadDynamicComponent:withLoadedBlock:(NSString *url,[withLoadedBlock] onComponentLoaded block);
+}
+
+public class LynxEngine : NSObject {
+  public LynxTemplateRender* LynxEngine::lynxTemplateRender lynxTemplateRender;
+  public LynxTemplateBundle* LynxEngine::templateBundle templateBundle;
+  public LynxEngineState LynxEngine::engineState engineState;
+  public id<LynxUIRendererProtocol> LynxEngine::lynxUIRenderer lynxUIRenderer;
+  public LynxShadowNodeOwner* LynxEngine::shadowNodeOwner shadowNodeOwner;
+  public NSMutableArray<LynxEngine *>* LynxEngine::engineQueueRef engineQueueRef;
+  public instancetype LynxEngine::initWithTemplateRender:(LynxTemplateRender *render);
+  public lynx::shell::LynxEngineWrapper * LynxEngine::getEngineNative();
+  public BOOL LynxEngine::hasLoaded();
+  public BOOL LynxEngine::canBeReused();
+  public void LynxEngine::registerToReuse();
+  public BOOL LynxEngine::isRunOnCurrentTemplateRender:(LynxTemplateRender *render);
+  public void LynxEngine::attachTemplateRender:(LynxTemplateRender *render);
+  public void LynxEngine::detachEngine();
+  public void LynxEngine::destroy();
+}
+
+public class LynxEnginePool : NSObject {
+  public instancetype LynxEnginePool::sharedInstance();
+  public void LynxEnginePool::registerReuseEngine:(LynxEngine *engine);
+  public LynxEngine * LynxEnginePool::pollEngineWithRender:(LynxTemplateBundle *render);
 }
 
 public class LynxEngineProxy : NSObject {
@@ -1229,9 +1272,12 @@ public class LynxEnv : NSObject {
   public void LynxEnv::enableFluencyTracer:(BOOL value);
   public BOOL LynxEnv::enableComponentStatisticReport();
   public BOOL LynxEnv::enableImageEventReport();
+  public BOOL LynxEnv::enableImageAsyncLayout();
   public BOOL LynxEnv::enableGenericResourceFetcher();
   public BOOL LynxEnv::enableTextContainerOpt();
   public BOOL LynxEnv::enableTextStorageDeallocFix();
+  public int LynxEnv::memoryAcquisitionDelaySec();
+  public int LynxEnv::memoryReportIntervalSec();
   public NSDictionary< NSString *, NSString * > * LynxEnv::cppEnvDebugDescription();
   public NSDictionary< NSString *, NSString * > * LynxEnv::platformEnvDebugDescription();
   public BOOL LynxEnv()::enableCreateUIAsync();
@@ -1622,7 +1668,10 @@ public class LynxFPSRecord : NSObject, <NSCopying> {
 }
 
 public class LynxFrameView : UIView, <LUIBodyView> {
+  public void LynxFrameView::initWithRootView:(UIView< LUIBodyView > *rootView);
   public void LynxFrameView::setAppBundle:(LynxTemplateBundle *bundle);
+  public void LynxFrameView::updateMetaData:(LynxUpdateMeta *meta);
+  public void LynxFrameView::setUrl:(NSString *url);
 }
 
 public protocol LynxGenericResourceFetcher-p : <NSObject> {
@@ -1844,6 +1893,11 @@ public protocol LynxHolder-p : <NSObject> {
   public LynxView * LynxHolder-p::createLynxView:(LynxRoute *route);
   public void LynxHolder-p::showLynxView:name:(nonnull LynxView *lynxView,[name] nonnull NSString *name);
   public void LynxHolder-p::hideLynxView:(nonnull LynxView *lynxView);
+}
+
+public class LynxHostPlatformTiming : NSObject {
+  public NSString* LynxHostPlatformTiming::hostPlatformType hostPlatformType;
+  public instancetype LynxHostPlatformTiming::initWithDictionary:(NSDictionary *dictionary);
 }
 
 public protocol LynxHttpInterceptor-p :  {
@@ -2114,6 +2168,19 @@ public class LynxLayoutTick : NSObject {
   public void LynxLayoutTick::requestLayout();
   public void LynxLayoutTick::triggerLayout();
   public void LynxLayoutTick::cancelLayoutRequest();
+}
+
+public class LynxLazyBundleEntry : LynxPerformanceEntry {
+  public NSString* LynxLazyBundleEntry::componentUrl componentUrl;
+  public NSString* LynxLazyBundleEntry::mode mode;
+  public NSNumber* LynxLazyBundleEntry::size size;
+  public BOOL LynxLazyBundleEntry::sync sync;
+  public BOOL LynxLazyBundleEntry::loadSuccess loadSuccess;
+  public NSNumber* LynxLazyBundleEntry::requireStart requireStart;
+  public NSNumber* LynxLazyBundleEntry::requireEnd requireEnd;
+  public NSNumber* LynxLazyBundleEntry::decodeStart decodeStart;
+  public NSNumber* LynxLazyBundleEntry::decodeEnd decodeEnd;
+  public instancetype LynxLazyBundleEntry::initWithDictionary:(NSDictionary *dictionary);
 }
 
 public struct LynxLengthContext {
@@ -2462,14 +2529,16 @@ public protocol LynxMemoryMonitorProtocol-p : <NSObject> {
   public void LynxMemoryMonitorProtocol-p::allocateMemory:(LynxMemoryRecordBuilder _Nonnull recordBuilder);
   public void LynxMemoryMonitorProtocol-p::deallocateMemory:(LynxMemoryRecordBuilder _Nonnull recordBuilder);
   public void LynxMemoryMonitorProtocol-p::updateMemoryUsage:(LynxMemoryRecordBuilder _Nonnull recordBuilder);
+  public void LynxMemoryMonitorProtocol-p::updateMemoryUsageWithRecords:(NSDictionary< NSString *, LynxMemoryRecord * > *records);
   public BOOL LynxMemoryMonitorProtocol-p::isMemoryMonitorEnabled();
 }
 
 public class LynxMemoryRecord : NSObject {
   public NSString* LynxMemoryRecord::category category;
-  public float LynxMemoryRecord::sizeKb sizeKb;
+  public int64_t LynxMemoryRecord::sizeBytes sizeBytes;
+  public int LynxMemoryRecord::instanceCount instanceCount;
   public NSDictionary<NSString*, NSString*>* LynxMemoryRecord::detail detail;
-  public instancetype LynxMemoryRecord::initWithCategory:sizeKb:detail:(NSString *category,[sizeKb] float sizeKb,[detail] NSDictionary< NSString *, NSString * > *_Nullable detail);
+  public instancetype LynxMemoryRecord::initWithCategory:sizeBytes:detail:(NSString *category,[sizeBytes] int64_t sizeBytes,[detail] NSDictionary< NSString *, NSString * > *_Nullable detail);
 }
 
 public protocol LynxMemoryReporter-p : <NSObject> {
@@ -2477,14 +2546,14 @@ public protocol LynxMemoryReporter-p : <NSObject> {
 }
 
 public class LynxMemoryUsageEntry : LynxPerformanceEntry {
-  public NSNumber* LynxMemoryUsageEntry::sizeKb sizeKb;
+  public NSNumber* LynxMemoryUsageEntry::sizeBytes sizeBytes;
   public NSDictionary<NSString*, LynxMemoryUsageItem*>* LynxMemoryUsageEntry::detail detail;
   public instancetype LynxMemoryUsageEntry::initWithDictionary:(NSDictionary *dictionary);
 }
 
 public class LynxMemoryUsageItem : NSObject {
   public NSString* LynxMemoryUsageItem::category category;
-  public NSNumber* LynxMemoryUsageItem::sizeKb sizeKb;
+  public NSNumber* LynxMemoryUsageItem::sizeBytes sizeBytes;
   public NSDictionary<NSString*, NSString*>* LynxMemoryUsageItem::detail detail;
   public instancetype LynxMemoryUsageItem::initWithDictionary:(NSDictionary *dictionary);
 }
@@ -2640,6 +2709,7 @@ public class LynxPipelineEntry : LynxPerformanceEntry {
   public NSNumber* LynxPipelineEntry::layoutUiOperationExecuteEnd layoutUiOperationExecuteEnd;
   public NSNumber* LynxPipelineEntry::paintEnd paintEnd;
   public NSDictionary* LynxPipelineEntry::frameworkRenderingTiming frameworkRenderingTiming;
+  public LynxHostPlatformTiming* LynxPipelineEntry::hostPlatformTiming hostPlatformTiming;
   public instancetype LynxPipelineEntry::initWithDictionary:(NSDictionary *dictionary);
 }
 
@@ -3050,6 +3120,7 @@ public class LynxShadowNodeOwner : NSObject {
   public instancetype LynxShadowNodeOwner::NS_UNAVAILABLE();
   public instancetype LynxShadowNodeOwner::initWithUIOwner:layoutTick:isAsyncLayout:(LynxUIOwner *uiOwner,[layoutTick] nullable LynxLayoutTick *layoutTick,[isAsyncLayout] BOOL isAsyncLayout);
   public void LynxShadowNodeOwner::setDelegate:(id< LynxShadowNodeDelegate > delegate);
+  public void LynxShadowNodeOwner::setLayoutTick:(nullable LynxLayoutTick *layoutTick);
   public void LynxShadowNodeOwner::initLayoutNodeManager:(void *layoutNodeManagerPtr);
   public NSInteger LynxShadowNodeOwner::createNodeWithSign:tagName:props:eventSet:lepusEventSet:isParentInlineContainer:(NSInteger sign,[tagName] nonnull NSString *tagName,[props] nullable NSDictionary *props,[eventSet] nullable NSSet< NSString * > *eventSet,[lepusEventSet] nullable NSSet< NSString * > *lepusEventSet,[isParentInlineContainer] bool allowInline);
   public void LynxShadowNodeOwner::updateNodeWithSign:props:eventSet:lepusEventSet:(NSInteger sign,[props] nullable NSDictionary *props,[eventSet] nullable NSSet< NSString * > *eventSet,[lepusEventSet] nullable NSSet< NSString * > *lepusEventSet);
@@ -3082,10 +3153,12 @@ public class LynxSizeValue : NSObject {
 }
 
 public class LynxSSRHelper : NSObject {
-  public void LynxSSRHelper::onLoadSSRDataBegan:(NSString *url);
-  public void LynxSSRHelper::onHydrateBegan:(NSString *url);
-  public void LynxSSRHelper::onHydrateFinished:(NSString *url);
+  public void LynxSSRHelper::onLoadSSRDataStart();
+  public void LynxSSRHelper::onHydrateStart();
+  public void LynxSSRHelper::onHydrateExecuting();
+  public void LynxSSRHelper::onHydrateFinished();
   public void LynxSSRHelper::onErrorOccurred:sourceError:(NSInteger code,[sourceError] NSError *source);
+  public BOOL LynxSSRHelper::isHydrateStarted();
   public BOOL LynxSSRHelper::isHydratePending();
   public BOOL LynxSSRHelper::shouldSendEventToSSR();
   public NSArray * LynxSSRHelper::processEventParams:(NSArray *params);
@@ -3165,6 +3238,7 @@ public class LynxTemplateRender : NSObject, <LynxTemplateRenderProtocol>, <Templ
   public BOOL LynxTemplateRender::isDestroyed isDestroyed;
   public BOOL LynxTemplateRender::hasRendered hasRendered;
   public NSString* LynxTemplateRender::url url;
+  public id LynxTemplateRender::templateBundle templateBundle;
   public BOOL LynxTemplateRender::enableJSRuntime enableJSRuntime;
   public LynxDevtool* LynxTemplateRender::devTool devTool;
   public BOOL LynxTemplateRender::enablePrePainting enablePrePainting;
@@ -3221,10 +3295,13 @@ public class LynxTemplateRender : NSObject, <LynxTemplateRenderProtocol>, <Templ
   public LynxEngineProxy * LynxTemplateRender()::getEngineProxy();
   public void LynxTemplateRender()::markDirty();
   public id< LynxUIRendererProtocol > LynxTemplateRender()::lynxUIRenderer();
+  public LynxShadowNodeOwner * LynxTemplateRender()::shadowNodeOwner();
   public LynxUIOwner * LynxTemplateRender()::uiOwner();
   public LynxPerformanceController * LynxTemplateRender()::performanceController();
   public void LynxTemplateRender()::setAttachLynxPageUICallback:(attachLynxPageUI callback);
   public void LynxTemplateRender()::updateFrame:(CGRect frame);
+  public LynxViewBuilderBlock LynxTemplateRender()::getLynxViewBuilderBlock();
+  public void LynxTemplateRender()::detachLynxEngine();
   public lynx::piper::ModuleFactoryDarwin * LynxTemplateRender()::getModuleFactory();
   public LynxLifecycleDispatcher * LynxTemplateRender()::getLifecycleDispatcher();
   public void LynxTemplateRender(Helper)::setUpWithBuilder:screenSize:(LynxViewBuilder *builder, [screenSize] CGSize screenSize);
@@ -3279,7 +3356,7 @@ public protocol LynxTemplateRenderProtocol-p : <NSObject> {
   public NSString* LynxTemplateRenderProtocol-p::url url;
   public BOOL LynxTemplateRenderProtocol-p::enableJSRuntime enableJSRuntime;
   public NSMutableDictionary<NSString*, id>* LynxTemplateRenderProtocol-p::lepusModulesClasses lepusModulesClasses;
-  public nonnull instancetype LynxTemplateRenderProtocol-p::initWithBuilderBlock:lynxView:(void(^_Nullable block)(NS_NOESCAPE LynxViewBuilder *_Nonnull),[lynxView] LynxView *_Nullable lynxView);
+  public nonnull instancetype LynxTemplateRenderProtocol-p::initWithBuilderBlock:lynxView:(LynxViewBuilderBlock block,[lynxView] LynxView *_Nullable lynxView);
   public void LynxTemplateRenderProtocol-p::loadTemplateFromURL:initData:(NSString *_Nonnull url,[initData] LynxTemplateData *_Nullable data);
   public void LynxTemplateRenderProtocol-p::reset();
   public void LynxTemplateRenderProtocol-p::clearForDestroy();
@@ -3360,6 +3437,10 @@ public protocol LynxTemplateResourceFetcher-p : <NSObject> {
   public void LynxTemplateResourceFetcher-p::fetchSSRData:onComplete:(LynxResourceRequest *_Nonnull request,[onComplete] LynxSSRResourceCompletionBlock _Nonnull callback);
 }
 
+public class LynxTextAttachment : NSTextAttachment {
+  public NSInteger LynxTextAttachment::sign sign;
+}
+
 public class LynxTextAttachmentInfo : NSObject {
   public NSInteger LynxTextAttachmentInfo::sign sign;
   public CGRect LynxTextAttachmentInfo::frame frame;
@@ -3411,6 +3492,13 @@ public class LynxTextRendererCache : NSObject, <NSCacheDelegate> {
   public instancetype LynxTextRendererCache::NS_UNAVAILABLE();
   public LynxTextRenderer * LynxTextRendererCache::rendererWithString:layoutSpec:(NSAttributedString *str,[layoutSpec] LynxLayoutSpec *spec);
   public void LynxTextRendererCache::clearCache();
+}
+
+public class LynxTextRenderManager : NSObject {
+  public MeasureResult LynxTextRenderManager::measureTextWithSign:width:widthMode:height:heightMode:childrenSizeDic:(int sign,[width] float width,[widthMode] LynxMeasureMode widthMode,[height] float height,[heightMode] LynxMeasureMode heightMode,[childrenSizeDic] nullable NSDictionary *childrenSizeDic);
+  public id LynxTextRenderManager::takeTextRender:(NSInteger sign);
+  public void LynxTextRenderManager::putAttributedTextBundle:textBundle:(NSInteger sign,[textBundle] LynxAttributedTextBundle *textBundle);
+  public NSDictionary * LynxTextRenderManager::getInlineElementOffsetDic:(NSInteger sign);
 }
 
 public class LynxTextShadowNode : LynxBaseTextShadowNode, <LynxCustomMeasureDelegate> {
@@ -3515,7 +3603,6 @@ public class LynxThreadSafeDictionary : <KeyType>, <ObjectType> {
 public protocol LynxTimingCollectorProtocol-p : <NSObject> {
   public void LynxTimingCollectorProtocol-p::markTiming:pipelineID:(NSString *key,[pipelineID] nullable NSString *pipelineID);
   public void LynxTimingCollectorProtocol-p::setTiming:key:pipelineID:(uint64_t timestamp,[key] NSString *key,[pipelineID] nullable NSString *pipelineID);
-  public void LynxTimingCollectorProtocol-p::MarkPaintEndTimingIfNeeded();
   public void LynxTimingCollectorProtocol-p::resetTimingBeforeReload();
   public void LynxTimingCollectorProtocol-p::onPipelineStart:pipelineOrigin:timestamp:(NSString *pipelineID,[pipelineOrigin] NSString *pipelineOrigin,[timestamp] uint64_t timestamp);
 }
@@ -4319,6 +4406,7 @@ public class LynxUIOwner : NSObject {
   public id<LynxBaseInspectorOwner> LynxUIOwner::baseInspectOwner baseInspectOwner;
   public LynxGestureArenaManager* _Nullable LynxUIOwner::gestureArenaManager gestureArenaManager;
   public attachLynxPageUI LynxUIOwner::attachLynxPageUICallback attachLynxPageUICallback;
+  public LynxTextRenderManager* LynxUIOwner::textRenderManager textRenderManager;
   public void LynxUIOwner::attachContainerView:(UIView< LUIBodyView > *_Nonnull containerView);
   public instancetype LynxUIOwner::initWithContainerView:componentRegistry:screenMetrics:(UIView< LUIBodyView > *containerView,[componentRegistry] LynxComponentScopeRegistry *registry,[screenMetrics] LynxScreenMetrics *screenMetrics);
   public instancetype LynxUIOwner::initWithContainerView:componentRegistry:screenMetrics:errorHandler:uiConfig:(UIView< LUIBodyView > *containerView,[componentRegistry] LynxComponentScopeRegistry *registry,[screenMetrics] LynxScreenMetrics *screenMetrics,[errorHandler] id< LUIErrorHandling > _Nullable errorHandler,[uiConfig] id< LUIConfig > _Nullable uiConfig);
@@ -4366,6 +4454,8 @@ public class LynxUIOwner : NSObject {
   public LynxComponentScopeRegistry * LynxUIOwner::getComponentRegistry();
   public void LynxUIOwner::didMoveToWindow:(BOOL windowIsNil);
   public void LynxUIOwner::updateAnimationKeyframes:(NSDictionary *keyframesDict);
+  public NSDictionary< NSString *, LynxMemoryRecord * > * LynxUIOwner::getMemoryUsage();
+  public Boolean LynxUIOwner::isLayoutInElementModeOn();
   public NSArray< LynxUI * > * LynxUIOwner::uiWithA11yID:(NSString *a11yID);
   public NSArray< UIView * > * LynxUIOwner::viewsWithA11yID:(NSString *a11yID);
   public NSInteger LynxUIOwner::getTagInfo:(NSString *tagName);
@@ -4440,6 +4530,7 @@ public protocol LynxUIRendererProtocol-p : <NSObject> {
   public void LynxUIRendererProtocol-p::setEnableGenericResourceFetcher:(BOOL enable);
   public id< LynxTemplateResourceFetcher > LynxUIRendererProtocol-p::templateResourceFetcher();
   public id< LynxGenericResourceFetcher > LynxUIRendererProtocol-p::genericResourceFetcher();
+  public id< LynxMediaResourceFetcher > LynxUIRendererProtocol-p::mediaResourceFetcher();
   public void LynxUIRendererProtocol-p::setupResourceProvider:withBuilder:(id< LynxResourceProvider > resourceProvider,[withBuilder] LynxViewBuilder *builder);
   public void LynxUIRendererProtocol-p::reset();
   public LynxScreenMetrics * LynxUIRendererProtocol-p::getScreenMetrics();
@@ -4504,6 +4595,8 @@ public protocol LynxUITarget-p : <NSObject> {
   public void LynxUITarget-p::targetOnScreen();
   public void LynxUITarget-p::freeMemoryCache();
   public void LynxUITarget-p::targetOffScreen();
+  public float LynxUITarget-p::memoryUsageKB();
+  public NSDictionary< NSString *, NSString * > * LynxUITarget-p::memoryUsageDetail();
 }
 
 public class LynxUIText : LynxUI, <LynxTextView> {
@@ -4606,7 +4699,7 @@ public class LynxView : UIView, <LUIBodyView> {
   public void LynxView::setResourceFetcher:(nullable id< LynxResourceFetcher > resourceFetcher);
   public nonnull instancetype LynxView::init();
   public nonnull instancetype LynxView::initWithFrame:(CGRect frame);
-  public nonnull instancetype LynxView::initWithBuilderBlock:(void(^_Nullable builder)(NS_NOESCAPE LynxViewBuilder *_Nonnull));
+  public nonnull instancetype LynxView::initWithBuilderBlock:(LynxViewBuilderBlock builder);
   public instancetype _Nullable LynxView::initWithoutRender();
   public void LynxView::initLifecycleDispatcher();
   public void LynxView::clearForDestroy();
@@ -4747,6 +4840,7 @@ public class LynxViewBuilder : NSObject {
   public id<LynxGenericResourceFetcher> LynxViewBuilder::genericResourceFetcher genericResourceFetcher;
   public id<LynxMediaResourceFetcher> LynxViewBuilder::mediaResourceFetcher mediaResourceFetcher;
   public id<LynxTemplateResourceFetcher> LynxViewBuilder::templateResourceFetcher templateResourceFetcher;
+  public LynxTemplateBundle* LynxViewBuilder::lynxTemplateBundleForEngineReused lynxTemplateBundleForEngineReused;
   public id LynxViewBuilder::lynxModuleExtraData lynxModuleExtraData;
   public CGSize LynxViewBuilder::screenSize screenSize;
   public BOOL LynxViewBuilder::debuggable debuggable;
@@ -5057,6 +5151,7 @@ public enum LynxFeature {
   public FOUNDATION_EXTERN NSString* const kTimingContainerInitStart kTimingContainerInitStart;
   public FOUNDATION_EXTERN NSString* const kTimingContainerInitEnd kTimingContainerInitEnd;
   public FOUNDATION_EXTERN NSString* const kTimingOpenTime kTimingOpenTime;
+  public FOUNDATION_EXTERN NSString* const kTimingPaintEnd kTimingPaintEnd;
 
 public enum LynxWhiteSpaceType {
   LynxWhiteSpaceNormal
@@ -5123,6 +5218,11 @@ public enum LynxXAnimationColorInterpolationType {
   LynxXAnimationColorInterpolationAuto
   LynxXAnimationColorInterpolationSRGB
   LynxXAnimationColorInterpolationLinearRGB
+}
+
+public enum LynxFontOpticalSizingType {
+  LynxFontOpticalSizingNone
+  LynxFontOpticalSizingAuto
 }
 
 
@@ -5491,6 +5591,7 @@ public enum LynxEnvKey {
   LynxEnvEnableTextLayerRender
   LynxEnvEnableCreateUIAsync
   LynxEnvEnableImageEventReport
+  LynxEnvEnableImageAsyncLayout
   LynxEnvEnableGenericResourceFetcher
   LynxEnvEnableAnimationSyncTimeOpt
   LynxEnvFixNewImageDownSampling
@@ -5500,6 +5601,7 @@ public enum LynxEnvKey {
   LynxEnvEnableTextStorageDeallocFix
   LynxEnvEnableJSGroupThreadByDefault
   LynxEnvEnableTextLayoutCache
+  LynxEnvEnableForceMemoryMonitorOnOom
   LynxEnvKeyEndMark
 }
 
@@ -5595,6 +5697,8 @@ public enum LynxEnvKey {
 public enum LynxLoadMode {
   LynxLoadModeNormal
   LynxLoadModePrePainting
+  LynxLoadModeRenderSSR
+  LynxLoadModeHydrateSSR
 }
 
   public typedef NS_OPTIONS(NSInteger, LynxLoadOption);
@@ -5846,6 +5950,7 @@ public enum LynxTASMType {
 
 
   typedef void(^ attachLynxPageUI) (__weak NSObject *_Nonnull ui)
+  typedef void(^ _Nullable) (__attribute__((noescape)) LynxViewBuilder *_Nonnull __strong)
 
 public enum LynxSizeValueType {
   LynxSizeValueTypeUnknown
@@ -5875,6 +5980,14 @@ public enum LynxGestureFlingTriggerState {
   public const int LYNX_STATE_FAIL LYNX_STATE_FAIL;
   public const int LYNX_STATE_END LYNX_STATE_END;
   public const int LYNX_STATE_UNDETERMINED LYNX_STATE_UNDETERMINED;
+
+public enum LynxEngineState {
+  LynxEngineStateUnloaded
+  LynxEngineStateReadyToBeReused
+  LynxEngineStateOnReusing
+  LynxEngineStateDestroyed
+}
+
 
   typedef void(^ DidAnimationStop) (CAAnimation *__nullable animation, BOOL finished)
   public DidAnimationStart didStart didStart;

@@ -133,7 +133,7 @@ LynxTemplateRenderer::LynxTemplateRenderer(
   param[0] =
       base::NapiUtil::CreatePtrArray(env, reinterpret_cast<uintptr_t>(this));
   base::NapiUtil::InvokeJsMethod(env_, template_renderer_ref_, "createDevTool",
-                                 1, param);
+                                 1, param, nullptr);
   if (inspector_owner_ != nullptr) {
     inspector_owner_->OnTemplateAssemblerCreated(
         reinterpret_cast<intptr_t>(shell_.get()));
@@ -150,7 +150,8 @@ LynxTemplateRenderer::LynxTemplateRenderer(
   module_param[0] = base::NapiUtil::CreatePtrArray(
       env, reinterpret_cast<uintptr_t>(module_manager_.get()));
   base::NapiUtil::InvokeJsMethod(env_, template_renderer_ref_,
-                                 "initNativeSetModule", 1, module_param);
+                                 "initNativeSetModule", 1, module_param,
+                                 nullptr);
 
   auto on_runtime_actor_created = [this](auto& actor) {
     auto module_delegate = std::make_shared<shell::ModuleDelegateImpl>(
@@ -265,8 +266,10 @@ void LynxTemplateRenderer::LoadTemplate(
   if (inspector_owner_ != nullptr) {
     inspector_owner_->OnLoadTemplate(url, source, template_data);
   }
-  shell_->LoadTemplate(url, source, pipeline_options, template_data,
-                       enable_recycle_template_bundle);
+  pipeline_options->enable_pre_painting = false;
+  pipeline_options->enable_recycle_template_bundle =
+      enable_recycle_template_bundle;
+  shell_->LoadTemplate(url, source, pipeline_options, template_data);
 }
 
 void LynxTemplateRenderer::ReloadTemplate(
@@ -282,8 +285,9 @@ void LynxTemplateRenderer::LoadTemplateBundle(
     const std::shared_ptr<lynx::tasm::PipelineOptions>& pipeline_options,
     const std::shared_ptr<lynx::tasm::TemplateData>& template_data,
     bool enable_dump_element_tree) {
-  shell_->LoadTemplateBundle(url, bundle, pipeline_options, template_data,
-                             enable_dump_element_tree);
+  pipeline_options->enable_pre_painting = false;
+  pipeline_options->enable_dump_element_tree = enable_dump_element_tree;
+  shell_->LoadTemplateBundle(url, bundle, pipeline_options, template_data);
 }
 
 std::shared_ptr<lynx::tasm::PipelineOptions>
@@ -373,6 +377,7 @@ lepus::Value LynxTemplateRenderer::GetPageDataByKey(
 void LynxTemplateRenderer::OnReloadTemplate(
     const std::string& url, const std::vector<uint8_t>& source,
     const std::shared_ptr<tasm::TemplateData>& data) {
+  base::NapiHandleScope scope(env_);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_,
                                       "onReloadTemplate", 0, nullptr);
 }
@@ -381,6 +386,7 @@ void LynxTemplateRenderer::OnLoaded(const std::string& url) {
   if (inspector_owner_ != nullptr) {
     inspector_owner_->OnLoaded(url);
   }
+  base::NapiHandleScope scope(env_);
   napi_value param[1];
   napi_create_string_utf8(env_, url.c_str(), url.length(), &param[0]);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_, "onLoaded",
@@ -388,16 +394,19 @@ void LynxTemplateRenderer::OnLoaded(const std::string& url) {
 }
 
 void LynxTemplateRenderer::OnRuntimeReady() {
+  base::NapiHandleScope scope(env_);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_,
                                       "onRuntimeReady", 0, nullptr);
 }
 
 void LynxTemplateRenderer::OnDataUpdated() {
+  base::NapiHandleScope scope(env_);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_,
                                       "onDataUpdated", 0, nullptr);
 }
 
 void LynxTemplateRenderer::OnPageChanged(bool is_first_screen) {
+  base::NapiHandleScope scope(env_);
   napi_value param[1];
   napi_get_boolean(env_, is_first_screen, &param[0]);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_,
@@ -406,6 +415,7 @@ void LynxTemplateRenderer::OnPageChanged(bool is_first_screen) {
 void LynxTemplateRenderer::OnFirstLoadPerfReady(
     const std::unordered_map<int32_t, double>& perf,
     const std::unordered_map<int32_t, std::string>& perf_timing) {
+  base::NapiHandleScope scope(env_);
   napi_value param[2];
   param[0] = base::NapiUtil::CreateMap(env_, perf);
   param[1] = base::NapiUtil::CreateMap(env_, perf_timing);
@@ -416,6 +426,7 @@ void LynxTemplateRenderer::OnFirstLoadPerfReady(
 void LynxTemplateRenderer::OnUpdatePerfReady(
     const std::unordered_map<int32_t, double>& perf,
     const std::unordered_map<int32_t, std::string>& perf_timing) {
+  base::NapiHandleScope scope(env_);
   napi_value param[2];
   param[0] = base::NapiUtil::CreateMap(env_, perf);
   param[1] = base::NapiUtil::CreateMap(env_, perf_timing);
@@ -428,6 +439,7 @@ void LynxTemplateRenderer::OnErrorOccurred(
     const std::string& fix_suggestion,
     const std::unordered_map<std::string, std::string>& custom_info,
     bool is_logbox_only) {
+  base::NapiHandleScope scope(env_);
   std::string level_str = base::LynxError::GetLevelString(level);
   napi_value param[6];
   napi_create_string_utf8(env_, level_str.c_str(), level_str.length(),
@@ -444,6 +456,7 @@ void LynxTemplateRenderer::OnErrorOccurred(
 
 void LynxTemplateRenderer::OnThemeUpdatedByJs(
     const std::unordered_map<std::string, std::string>& theme) {
+  base::NapiHandleScope scope(env_);
   napi_value param[1];
   param[0] = base::NapiUtil::CreateMap(env_, theme);
   base::NapiUtil::AsyncInvokeJsMethod(env_, template_renderer_ref_,
@@ -454,9 +467,9 @@ void LynxTemplateRenderer::OnTemplateBundleReady(
     const tasm::LynxTemplateBundle& bundle) {
   base::NapiHandleScope scope(env_);
   napi_value param[2] = {nullptr, nullptr};
-  auto status = base::NapiUtil::InvokeJsMethodNoScope(
-      env_, template_renderer_ref_, "createTemplateBundle", 0, nullptr,
-      &param[0]);
+  auto status = base::NapiUtil::InvokeJsMethod(env_, template_renderer_ref_,
+                                               "createTemplateBundle", 0,
+                                               nullptr, &param[0]);
   if (status != napi_ok || param[0] == nullptr) {
     LOGE("create template bundle failed");
     return;
@@ -475,7 +488,7 @@ void LynxTemplateRenderer::OnTemplateBundleReady(
   }
 
   base::NapiUtil::InvokeJsMethod(env_, template_renderer_ref_,
-                                 "onTemplateBundleReady", 2, param);
+                                 "onTemplateBundleReady", 2, param, nullptr);
 }
 
 #define DECLARE_NAPI_METHOD(name, func) \
@@ -992,7 +1005,6 @@ napi_value LynxTemplateRenderer::LoadTemplateBundle(napi_env env,
   }
   obj->LoadTemplateBundle(std::move(url), bundle->GetBundle(), pipeline_options,
                           template_data, enable_dump_element_tree);
-
   return nullptr;
 }
 
@@ -1434,9 +1446,8 @@ std::vector<uint8_t> LynxTemplateRenderer::LoadJSSource(
   auto request = pub::LynxResourceRequest{
       .url = url, .type = pub::LynxResourceType::kAssets};
   resource_loader_->LoadResource(
-      request, true,
-      [promise =
-           std::move(promise)](pub::LynxResourceResponse& response) mutable {
+      request, [promise = std::move(promise)](
+                   pub::LynxResourceResponse& response) mutable {
         promise.set_value(std::move(response.data));
       });
   return future.get();
@@ -1462,9 +1473,8 @@ void LynxTemplateRenderer::LoadTemplateFromURL(
   pub::LynxResourceRequest req{.url = url,
                                .type = pub::LynxResourceType::kTemplate};
   resource_loader_->LoadResource(
-      req, true,
-      [weak_flag = weak_flag_->weak_from_this(), url, init_data,
-       &pipeline_options](pub::LynxResourceResponse& response) {
+      req, [weak_flag = weak_flag_->weak_from_this(), url, init_data,
+            &pipeline_options](pub::LynxResourceResponse& response) {
         auto flag = weak_flag.lock();
         if (!flag) {
           return;

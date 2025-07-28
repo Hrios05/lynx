@@ -465,6 +465,16 @@
   return enableImageEventReport;
 }
 
+- (BOOL)enableImageAsyncLayout {
+  static dispatch_once_t onceToken;
+  static BOOL enableImageAsyncLayout = YES;
+  dispatch_once(&onceToken, ^{
+    enableImageAsyncLayout = [self boolFromExternalEnv:LynxEnvEnableImageAsyncLayout
+                                          defaultValue:YES];
+  });
+  return enableImageAsyncLayout;
+}
+
 - (BOOL)enableTextContainerOpt {
   static dispatch_once_t onceToken;
   static BOOL enableTextContainerOpt = NO;
@@ -484,6 +494,24 @@
                                                defaultValue:YES];
   });
   return enableTextStorageDeallocFix;
+}
+
+- (int)memoryAcquisitionDelaySec {
+  static dispatch_once_t onceToken;
+  static int delaySecond = 0;
+  dispatch_once(&onceToken, ^{
+    delaySecond = lynx::tasm::LynxEnv::GetInstance().GetMemoryAcquisitionDelaySec();
+  });
+  return delaySecond;
+}
+
+- (int)memoryReportIntervalSec {
+  static dispatch_once_t onceToken;
+  static int delayMin = 0;
+  dispatch_once(&onceToken, ^{
+    delayMin = lynx::tasm::LynxEnv::GetInstance().GetMemoryReportIntervalSec();
+  });
+  return delayMin;
 }
 
 - (BOOL)enableGenericResourceFetcher {
@@ -586,6 +614,7 @@
     @(LynxEnvEnableTextLayerRender) : @"enable_text_layer_render",
     @(LynxEnvEnableCreateUIAsync) : @"enable_create_ui_async",
     @(LynxEnvEnableImageEventReport) : @"enable_image_event_report",
+    @(LynxEnvEnableImageAsyncLayout) : @"enable_image_async_layout",
     @(LynxEnvEnableGenericResourceFetcher) : @"enable_generic_resource_fetcher",
     @(LynxEnvEnableAnimationSyncTimeOpt) : @"enable_animation_sync_time_opt",
     @(LynxEnvFixNewImageDownSampling) : @"fix_new_image_downsampling",
@@ -595,6 +624,7 @@
     @(LynxEnvEnableTextStorageDeallocFix) : @"enable_text_storage_dealloc_fix",
     @(LynxEnvEnableJSGroupThreadByDefault) : @"enable_multi_js_thread_by_default",
     @(LynxEnvEnableTextLayoutCache) : @"enable_text_layout_cache",
+    @(LynxEnvEnableForceMemoryMonitorOnOom) : @"enable_force_memory_monitor_on_oom",
   };
   NSString *keyString = envKeyBinding[@(key)];
   NSAssert(keyString.length > 0, @"LynxEnv key string should not be nill.");

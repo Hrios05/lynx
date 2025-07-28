@@ -5,6 +5,10 @@
 package com.lynx.tasm;
 
 import static com.lynx.tasm.eventreport.LynxEventReporter.INSTANCE_ID_UNKNOWN;
+import static com.lynx.tasm.performance.timing.TimingConstants.HOST_PLATFORM_LAYOUT_END;
+import static com.lynx.tasm.performance.timing.TimingConstants.HOST_PLATFORM_LAYOUT_START;
+import static com.lynx.tasm.performance.timing.TimingConstants.HOST_PLATFORM_MEASURE_END;
+import static com.lynx.tasm.performance.timing.TimingConstants.HOST_PLATFORM_MEASURE_START;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -96,15 +100,15 @@ public class LynxView extends UIBodyView {
    * @param builder
    */
   public void initWithLynxViewBuilder(LynxViewBuilder builder) {
-    mLynxUIRender = builder.uiRenderCreator.createLynxUIRender();
-    builder.threadStrategy = mLynxUIRender.getSupportedThreadStrategy(builder.threadStrategy);
+    mLynxUIRender = builder.createLynxUIRenderer();
     if (builder.lynxBackgroundRuntime != null) {
       initLynxViewWithRuntime(getContext(), builder);
       return;
     }
 
-    LLog.i(TAG, "new lynxview detail " + this.toString());
-    mLynxUIRender.onInitBodyView(this, getContext(), builder.lynxRuntimeOptions.getLynxGroup());
+    LLog.i(TAG, "new lynxview detail " + this);
+    mLynxUIRender.onInitBodyView(
+        this, getContext(), builder.getLynxRuntimeOptions().getLynxGroup());
     initialize(getContext(), builder);
   }
 
@@ -135,9 +139,9 @@ public class LynxView extends UIBodyView {
     }
 
     LynxModuleFactory manager = runtime.getModuleFactory();
-    manager.addModuleParamWrapperIfAbsent(builder.lynxRuntimeOptions.getWrappers());
+    manager.addModuleParamWrapperIfAbsent(builder.getLynxRuntimeOptions().getWrappers());
 
-    builder.lynxRuntimeOptions.merge(runtime.getLynxRuntimeOptions());
+    builder.getLynxRuntimeOptions().merge(runtime.getLynxRuntimeOptions());
 
     initialize(context, builder);
   }
@@ -766,7 +770,7 @@ public class LynxView extends UIBodyView {
    * Calling this api will make LynxView rendered with SSR data interactable and behave just like a
    * normal lynxview.
    *
-   * @param url The url of the template
+   * @param hydrateUrl The url of the template
    * @param data The init data of the template
    */
   public void ssrHydrateUrl(@NonNull String hydrateUrl, final Map<String, Object> data) {
@@ -787,7 +791,7 @@ public class LynxView extends UIBodyView {
    * Calling this api will make LynxView rendered with SSR data interactable and behave just like a
    * normal lynxview.
    *
-   * @param url The url of the template
+   * @param hydrateUrl The url of the template
    * @param data The init data of the template
    */
   public void ssrHydrateUrl(@NonNull String hydrateUrl, final TemplateData data) {
@@ -960,13 +964,14 @@ public class LynxView extends UIBodyView {
       super.onMeasure(widthMeasureSpec, heightMeasureSpec);
       return;
     }
-
+    mLynxTemplateRender.markHostPlatformTiming(HOST_PLATFORM_MEASURE_START);
     mLynxTemplateRender.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
     ILynxUIRenderer lynxUIRenderer = lynxUIRenderer();
     if ((lynxUIRenderer != null) && lynxUIRenderer.shouldInvokeNativeViewMethod()) {
       super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
+    mLynxTemplateRender.markHostPlatformTiming(HOST_PLATFORM_MEASURE_END);
   }
 
   @Keep
@@ -975,7 +980,7 @@ public class LynxView extends UIBodyView {
     if (mLynxTemplateRender == null) {
       return;
     }
-
+    mLynxTemplateRender.markHostPlatformTiming(HOST_PLATFORM_LAYOUT_START);
     ILynxUIRenderer lynxUIRenderer = lynxUIRenderer();
     if ((lynxUIRenderer != null) && lynxUIRenderer.shouldInvokeNativeViewMethod()) {
       super.onLayout(changed, left, top, right, bottom);
@@ -988,6 +993,7 @@ public class LynxView extends UIBodyView {
         mKeyboardEvent.detectKeyboardChangeAndSendEvent();
       }
     }
+    mLynxTemplateRender.markHostPlatformTiming(HOST_PLATFORM_LAYOUT_END);
   }
 
   @Keep
@@ -1063,7 +1069,6 @@ public class LynxView extends UIBodyView {
     TraceEvent.endSection(TraceEventDef.DESTORY_LYNXVIEW);
   }
 
-  // TODO: 2020/3/25  final
   public ThreadStrategyForRendering getThreadStrategyForRendering() {
     if (mLynxTemplateRender == null) {
       return null;
@@ -1333,10 +1338,6 @@ public class LynxView extends UIBodyView {
       return null;
     }
     return mLynxTemplateRender.findUIByIdSelector(id);
-  }
-
-  public void innerSetMeasuredDimension(int w, int h) {
-    setMeasuredDimension(w, h);
   }
 
   public UIGroup<UIBodyView> getLynxUIRoot() {
@@ -1809,5 +1810,10 @@ public class LynxView extends UIBodyView {
     if (null != mLynxTemplateRender) {
       mLynxTemplateRender.addRuntimeLifecycleListener(listener);
     }
+  }
+
+  @Override
+  public LynxViewBuilder getLynxViewBuilder() {
+    return null != mLynxTemplateRender ? mLynxTemplateRender.getLynxViewBuilder() : null;
   }
 }

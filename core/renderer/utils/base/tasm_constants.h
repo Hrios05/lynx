@@ -28,6 +28,7 @@ static constexpr const char* kRequestAnimationFrame = "requestAnimationFrame";
 static constexpr const char* kCancelAnimationFrame = "cancelAnimationFrame";
 static constexpr const char* kReportError = "reportError";
 static constexpr const char* kLoadScript = "loadScript";
+static constexpr const char* kFetchBundle = "fetchBundle";
 
 // Constant string associated with tag
 // TODO(WUJINTIAN): Those `static char[]` here will lead to duplicate redundant
@@ -150,6 +151,9 @@ static constexpr const char kVertical[] = "vertical";
 static constexpr const char kColumnCount[] = "column-count";
 static constexpr const char kSpanCount[] = "span-count";
 static constexpr const char kSrc[] = "src";
+static constexpr const char kTextAttr[] = "text";
+static constexpr const char kTextMaxlineAttr[] = "text-maxline";
+static constexpr const char kTextOverflowAttr[] = "text-overflow";
 
 // storage API
 static constexpr const char* kSetSessionStorageItem = "setSessionStorageItem";

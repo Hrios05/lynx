@@ -38,6 +38,7 @@ public class LynxBackgroundRuntimeOptions {
   LynxGenericResourceFetcher genericResourceFetcher;
   LynxMediaResourceFetcher mediaResourceFetcher;
   LynxTemplateResourceFetcher templateResourceFetcher;
+  LynxBooleanOption enableGenericResourceFetcher = LynxBooleanOption.UNSET;
   // Pending lynx_core.js load
   private boolean mPendingCoreJsLoad;
 
@@ -123,16 +124,36 @@ public class LynxBackgroundRuntimeOptions {
     return mPresetData;
   }
 
-  public void genericResourceFetcher(@NonNull LynxGenericResourceFetcher fetcher) {
+  public void setGenericResourceFetcher(@NonNull LynxGenericResourceFetcher fetcher) {
     this.genericResourceFetcher = fetcher;
   }
 
-  public void mediaResourceFetcher(@NonNull LynxMediaResourceFetcher fetcher) {
+  public LynxGenericResourceFetcher getGenericResourceFetcher() {
+    return this.genericResourceFetcher;
+  }
+
+  public void setMediaResourceFetcher(@NonNull LynxMediaResourceFetcher fetcher) {
     this.mediaResourceFetcher = fetcher;
   }
 
-  public void templateResourceFetcher(@NonNull LynxTemplateResourceFetcher fetcher) {
+  public LynxMediaResourceFetcher getMediaResourceFetcher() {
+    return this.mediaResourceFetcher;
+  }
+
+  public void setTemplateResourceFetcher(@NonNull LynxTemplateResourceFetcher fetcher) {
     this.templateResourceFetcher = fetcher;
+  }
+
+  public LynxTemplateResourceFetcher getTemplateResourceFetcher() {
+    return this.templateResourceFetcher;
+  }
+
+  public void setEnableGenericResourceFetcher(LynxBooleanOption enabled) {
+    this.enableGenericResourceFetcher = enabled;
+  }
+
+  public LynxBooleanOption isEnableGenericResourceFetcher() {
+    return this.enableGenericResourceFetcher;
   }
 
   // There are 2 ways to use this method:
@@ -154,6 +175,9 @@ public class LynxBackgroundRuntimeOptions {
     // Merge these Fetchers only if they are unset:
     // This part of configurations are shared between runtime and platform-level of LynxView.
     // We need to keep the configurations on LynxViewBuilder if Fetchers are set.
+    if (this.enableGenericResourceFetcher == LynxBooleanOption.UNSET) {
+      this.enableGenericResourceFetcher = other.enableGenericResourceFetcher;
+    }
     this.genericResourceFetcher = this.genericResourceFetcher != null
         ? this.genericResourceFetcher
         : other.genericResourceFetcher;

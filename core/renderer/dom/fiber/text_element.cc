@@ -8,11 +8,11 @@
 #include <utility>
 
 #include "base/include/value/base_string.h"
+#include "core/renderer/css/css_property.h"
 #include "core/renderer/dom/element_manager.h"
 #include "core/renderer/dom/fiber/image_element.h"
 #include "core/renderer/dom/fiber/raw_text_element.h"
 #include "core/renderer/dom/fiber/view_element.h"
-#include "core/renderer/starlight/types/nlength.h"
 
 namespace lynx {
 namespace tasm {
@@ -23,7 +23,9 @@ TextElement::TextElement(ElementManager* manager, const base::String& tag)
   if (element_manager_ == nullptr) {
     return;
   }
-  SetDefaultOverflow(element_manager_->GetDefaultTextOverflow());
+  SetDefaultOverflow(element_manager_->GetDefaultTextOverflow() &&
+                     !EnableLayoutInElementMode());
+  element_manager_->IncreaseTextElementCount();
 }
 
 void TextElement::AttachToElementManager(
@@ -31,7 +33,8 @@ void TextElement::AttachToElementManager(
     const std::shared_ptr<CSSStyleSheetManager>& style_manager,
     bool keep_element_id) {
   FiberElement::AttachToElementManager(manager, style_manager, keep_element_id);
-  SetDefaultOverflow(manager->GetDefaultTextOverflow());
+  SetDefaultOverflow(manager->GetDefaultTextOverflow() &&
+                     !EnableLayoutInElementMode());
 }
 
 void TextElement::SetStyleInternal(CSSPropertyID id,
@@ -53,6 +56,9 @@ void TextElement::SetStyleInternal(CSSPropertyID id,
 void TextElement::OnNodeAdded(FiberElement* child) {
   child->ConvertToInlineElement();
   UpdateRenderRootElementIfNecessary(child);
+  if (!child->is_raw_text()) {
+    has_inline_child_ = true;
+  }
 }
 
 base::String TextElement::ConvertContent(const lepus::Value value) {
@@ -82,41 +88,58 @@ base::String TextElement::ConvertContent(const lepus::Value value) {
 
 void TextElement::SetAttributeInternal(const base::String& key,
                                        const lepus::Value& value) {
-  // sometimes, text-overflow is used as attribute, so we need to parse the
-  // value as CSS style here. it's better to mark such kind of attribute as
-  // internal attributes, which may be processed as const IDs
+  bool processed = EnableLayoutInElementMode()
+                       ? ProcessAttributeForLayoutInElement(key, value)
+                       : ProcessAttributeForNormalLayoutMode(key, value);
+  if (!processed) {
+    FiberElement::SetAttributeInternal(key, value);
+  }
+}
 
-  BASE_STATIC_STRING_DECL(kTextAttr, "text");
-  BASE_STATIC_STRING_DECL(kTextMaxlineAttr, "text-maxline");
-  BASE_STATIC_STRING_DECL(kTextOverflowAttr, "text-overflow");
+void TextElement::ResetAttribute(const base::String& key) {
+  if (!EnableLayoutInElementMode() ||
+      !ProcessAttributeForLayoutInElement(key, lepus::Value(), true)) {
+    FiberElement::ResetAttribute(key);
+  }
+}
 
-  if (EnableLayoutInElementMode()) {
-    if (key.IsEqual(kTextAttr)) {
-      content_ = ConvertContent(value);
-    } else if (key.IsEqual(kTextMaxlineAttr)) {
-      EnsureTextProps();
-      text_props_->text_max_line =
-          value.IsNumber() ? value.Number() : std::stoi(value.StdString());
-    } else {
-      FiberElement::SetAttributeInternal(key, value);
-    }
-    return;
+bool TextElement::ProcessAttributeForLayoutInElement(const base::String& key,
+                                                     const lepus::Value& value,
+                                                     bool is_reset) {
+  if (key.IsEqual(kTextAttr)) {
+    content_ = !is_reset ? ConvertContent(value) : base::String();
+    return true;
   }
 
+  if (key.IsEqual(kTextMaxlineAttr)) {
+    EnsureTextProps();
+    text_props_->text_max_line =
+        !is_reset
+            ? (value.IsNumber() ? value.Number() : std::stoi(value.StdString()))
+            : 1;
+    return true;
+  }
+  return false;
+}
+
+bool TextElement::ProcessAttributeForNormalLayoutMode(
+    const base::String& key, const lepus::Value& value) {
   if (key.IsEqual(kTextOverflowAttr)) {
     CacheStyleFromAttributes(kPropertyIDTextOverflow, value);
     has_layout_only_props_ = false;
-  } else if (key.IsEqual(kTextAttr) && !children().empty()) {
+    return true;
+  }
+
+  if (key.IsEqual(kTextAttr) && !children().empty()) {
     // if setNativeProps with key "text" on TextElement, we need to update it's
     // children.
-    if (children().begin()->get()->is_raw_text()) {
-      RawTextElement* raw_text =
-          static_cast<RawTextElement*>(children().begin()->get());
+    if (children().front()->is_raw_text()) {
+      auto* raw_text = static_cast<RawTextElement*>(children().front().get());
       raw_text->SetText(value);
     }
-  } else {
-    FiberElement::SetAttributeInternal(key, value);
+    return true;
   }
+  return false;
 }
 
 void TextElement::ConvertToInlineElement() {
@@ -146,7 +169,7 @@ bool TextElement::ResolveStyleValue(CSSPropertyID id,
                                     bool force_update) {
   bool has_processed = false;
 
-  if (EnableLayoutInElementMode()) {
+  if (EnableLayoutInElementMode() && IsTextMeasurerWanted(id)) {
     if (computed_css_style()->SetValue(id, value)) {
       property_bits_.Set(id);
       has_processed = true;
@@ -176,30 +199,12 @@ bool TextElement::ResetCSSValue(CSSPropertyID id) {
   return has_processed;
 }
 
-void TextElement::BuildTextPropsBuffer(std::string& output, PropArray* props) {
-  auto start = output.length();
-  output += content_.str();
-
-  auto* child = first_render_child();
-  while (child) {
-    if (static_cast<FiberElement*>(child)->is_raw_text()) {
-      output += static_cast<RawTextElement*>(child)->content().str();
-    } else if (child->is_text()) {
-      // inline text
-      static_cast<TextElement*>(child)->BuildTextPropsBuffer(output, props);
-    } else if (child->is_image() || child->is_view()) {
-      // inline image
-      output += kInlinePlaceHolder;
-      static_cast<FiberElement*>(child)->BuildAttributedStringProps(
-          output.length() - 1, output.length(), props);
-    }
-    child = child->next_render_sibling();
+void TextElement::DispatchLayoutBefore() {
+  if (is_inline_element()) {
+    return;
   }
 
-  auto end = output.length();
-  if (end > start) {
-    BuildAttributedStringProps(start, end, props);
-  }
+  element_manager_->DispatchLayoutBefore(this);
 }
 
 LayoutResult TextElement::Measure(float width, int32_t width_mode, float height,
@@ -207,19 +212,17 @@ LayoutResult TextElement::Measure(float width, int32_t width_mode, float height,
   if (is_inline_element()) {
     return LayoutResult(0, 0, 0);
   }
-  auto props = element_manager_->GetPropBundleCreator()->CreatePropArray();
-  if (!props) {
-    LOGE("TextElement: no PropArray defined!")
-    return LayoutResult(0, 0, 0);
+
+  return element_manager_->MeasureText(this, width, width_mode, height,
+                                       height_mode);
+}
+
+void TextElement::Align() {
+  if (is_inline_element() || !need_layout_children_) {
+    return;
   }
-  std::string output_str;
-  BuildTextPropsBuffer(output_str, props.get());
 
-  props->AddProp(kPropTextString);
-  props->AddProp(output_str.c_str());
-
-  return element_manager_->MeasureText(id_, props.get(), width, width_mode,
-                                       height, height_mode);
+  element_manager_->AlignText(this);
 }
 
 void TextElement::OnLayoutObjectCreated() {
@@ -243,6 +246,12 @@ void TextElement::OnLayoutObjectCreated() {
 
           return FloatSize(result.width_, result.height_, result.baseline_);
         });
+
+    SetAlignmentFunc(this, [](void* context) {
+      TextElement* element = static_cast<TextElement*>(context);
+      DCHECK(element);
+      element->Align();
+    });
   }
 }
 
@@ -253,104 +262,6 @@ void TextElement::UpdateLayoutNodeFontSize(double cur_node_font_size,
   } else {
     FiberElement::UpdateLayoutNodeFontSize(cur_node_font_size,
                                            root_node_font_size);
-  }
-}
-
-// static
-void TextElement::BuildAttributedStringProps(size_t pos_start, size_t pos_end,
-                                             PropArray* props) {
-  if (!text_props_ && !property_bits_.HasAny()) {
-    return;
-  }
-  // only inline text need the pass the range，   kPropRangeStart should be
-  // the first key
-  if (is_inline_element()) {
-    props->AddProp(kPropInlineStart);
-    props->AddProp(static_cast<int>(pos_start));
-  }
-
-  // styles
-  const auto& text_attributes = computed_css_style()->GetTextAttributes();
-  if (text_attributes.has_value()) {
-    for (CSSPropertyID id : property_bits_) {
-      switch (id) {
-        case kPropertyIDFontSize:
-          props->AddProp(kTextPropFontSize);
-          props->AddProp(
-              static_cast<float>(computed_css_style()->GetFontSize()));
-          break;
-
-        case kPropertyIDColor:
-          props->AddProp(kTextPropColor);
-          props->AddProp(static_cast<int>(text_attributes->color));
-          // FIXME(linxs): use another key to indicate color gradient
-          break;
-
-        case kPropertyIDWhiteSpace:
-          props->AddProp(kTextPropWhiteSpace);
-          props->AddProp(static_cast<int>(text_attributes->white_space));
-          break;
-
-        case kPropertyIDTextOverflow:
-          props->AddProp(kTextPropTextOverflow);
-          props->AddProp(static_cast<int>(text_attributes->text_overflow));
-          break;
-
-        case kPropertyIDFontWeight:
-          props->AddProp(kTextPropFontWeight);
-          props->AddProp(static_cast<int>(text_attributes->font_weight));
-          break;
-        case kPropertyIDFontStyle:
-          props->AddProp(kTextPropFontStyle);
-          props->AddProp(static_cast<int>(text_attributes->font_style));
-          break;
-
-        case kPropertyIDFontFamily:
-          props->AddProp(kTextPropFontFamily);
-          props->AddProp(text_attributes->font_family.c_str());
-          break;
-
-        case kPropertyIDLineHeight:
-          props->AddProp(kTextPropLineHeight);
-          props->AddProp(text_attributes->computed_line_height);
-          break;
-
-        case kPropertyIDLetterSpacing:
-          props->AddProp(kTextPropLetterSpacing);
-          props->AddProp(text_attributes->letter_spacing);
-          break;
-
-        case kPropertyIDTextAlign:
-          props->AddProp(kTextPropTextAlign);
-          props->AddProp(static_cast<int>(text_attributes->text_align));
-          break;
-
-        case kPropertyIDVerticalAlign:
-          props->AddProp(kTextPropVerticalAlign);
-          props->AddProp(static_cast<int>(text_attributes->vertical_align));
-          props->AddProp(text_attributes->vertical_align_length);
-          break;
-
-        default:
-          break;
-      }
-    }
-  }
-
-  // attributes
-  // text_maxline
-  if (text_props_) {
-    if (text_props_->text_max_line) {
-      props->AddProp(kTextPropTextMaxLine);
-      props->AddProp(*text_props_->text_max_line);
-    }
-  }
-
-  // only inline text need the pass the range, kPropRangeEnd should be the
-  // first key
-  if (is_inline_element()) {
-    props->AddProp(kPropInlineEnd);
-    props->AddProp(static_cast<int>(pos_end));
   }
 }
 

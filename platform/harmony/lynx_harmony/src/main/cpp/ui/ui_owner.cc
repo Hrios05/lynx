@@ -22,6 +22,7 @@
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/base/node_manager.h"
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/js_ui_base.h"
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/ui_base.h"
+#include "platform/harmony/lynx_harmony/src/main/cpp/ui/ui_flatten_image.h"
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/ui_image.h"
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/ui_list.h"
 #include "platform/harmony/lynx_harmony/src/main/cpp/ui/ui_root.h"
@@ -91,9 +92,11 @@ void UIOwner::CreateUI(int sign, const std::string& tag,
                        PropBundleHarmony* painting_data, uint32_t node_index) {
   TRACE_EVENT(LYNX_TRACE_CATEGORY, UI_OWNER_CREATE_UI + tag);
   UIBase* ui = nullptr;
-
-  if (auto* node_info = context_->GetNodeInfo(tag);
-      node_info && node_info->ui_creator) {
+  if ((tag == "image") && (painting_data->Contains("autoplay") ||
+                           painting_data->Contains("loop-count"))) {
+    ui = UIFlattenImage::Make(context_.get(), sign, tag);
+  } else if (auto* node_info = context_->GetNodeInfo(tag);
+             node_info && node_info->ui_creator) {
     ui = node_info->ui_creator(context_.get(), sign, tag);
   } else if (tag == "page") {
     ui = Root();
@@ -794,8 +797,11 @@ napi_value UIOwner::RequestLayout(napi_env env, napi_callback_info info) {
 }
 
 void UIOwner::RequestLayout() {
-  NodeManager::Instance().RequestLayout(
-      reinterpret_cast<UIRoot*>(root_.get())->GetProxyNode());
+  auto* root = reinterpret_cast<UIRoot*>(root_.get());
+  if (!root) {
+    return;
+  }
+  NodeManager::Instance().RequestLayout(root->GetProxyNode());
 }
 
 void UIOwner::UpdateComponentIdMap(UIBase* ui,
@@ -918,7 +924,8 @@ int UIOwner::GetJSNodeType(int sign, const std::string& tag) const {
   return result;
 }
 
-void UIOwner::PostDrawEndTimingFrameCallback() const {
+void UIOwner::PostDrawEndTimingFrameCallback(
+    const tasm::PipelineID& pipeline_id) const {
   base::NapiHandleScope scope(env_);
   napi_value js_recv = base::NapiUtil::GetReferenceNapiValue(env_, js_this_);
   napi_value post_draw_end_timing_frame_callback =
@@ -927,8 +934,10 @@ void UIOwner::PostDrawEndTimingFrameCallback() const {
   if (!js_recv || !post_draw_end_timing_frame_callback) {
     return;
   }
-  size_t argc = 0;
+  size_t argc = 1;
   napi_value argv[argc];
+  napi_create_string_latin1(env_, pipeline_id.data(), NAPI_AUTO_LENGTH,
+                            &argv[0]);
 
   napi_value result;
   napi_call_function(env_, js_recv, post_draw_end_timing_frame_callback, argc,

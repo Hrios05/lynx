@@ -10,8 +10,11 @@
 #include "base/include/expected.h"
 #include "base/include/log/logging.h"
 #include "core/renderer/utils/base/tasm_constants.h"
+#include "core/resource/lazy_bundle/bundle_resource_info.h"
 #include "core/runtime/bindings/common/event/runtime_constants.h"
+#include "core/runtime/bindings/common/resource/response_promise.h"
 #include "core/runtime/bindings/jsi/java_script_element.h"
+#include "core/runtime/bindings/jsi/resource/response_handler_in_js.h"
 #include "core/runtime/common/utils.h"
 #include "core/runtime/jsi/jsi.h"
 #include "core/value_wrapper/value_impl_lepus.h"
@@ -357,6 +360,14 @@ Value LynxProxy::get(lynx::piper::Runtime *rt,
         });
   }
 
+  if (methodName == tasm::kLoadScript) {
+    return LoadScript(*rt);
+  }
+
+  if (methodName == tasm::kFetchBundle) {
+    return FetchBundle(*rt);
+  }
+
   return piper::Value::undefined();
 }
 
@@ -399,29 +410,106 @@ piper::Value LynxProxy::GetCustomSectionSync(Runtime &rt,
       });
 }
 
+piper::Value LynxProxy::LoadScript(Runtime &rt) {
+  return Function::createFromHostFunction(
+      rt, PropNameID::forAscii(rt, tasm::kLoadScript), 1,
+      [this](Runtime &rt, const piper::Value &thisVal, const piper::Value *args,
+             size_t count) -> base::expected<Value, JSINativeException> {
+        auto native_app = native_app_.lock();
+        if (!native_app || native_app->IsDestroying()) {
+          return piper::Value::undefined();
+        }
+        if (count < 1) {
+          return base::unexpected(
+              BUILD_JSI_NATIVE_EXCEPTION(std::string(tasm::kLoadScript) +
+                                         "'s args must has 'key' argument."));
+        }
+        if (!args[0].isString()) {
+          return base::unexpected(
+              BUILD_JSI_NATIVE_EXCEPTION(std::string(tasm::kLoadScript) +
+                                         "'s first param must be string."));
+        }
+        auto key = args[0].getString(rt).utf8(rt);
+        std::string bundle_name = LEPUS_DEFAULT_CONTEXT_NAME;
+        if (count > 1 && args[1].isObject()) {
+          auto maybe_bundle_name = args[1].getObject(rt).getProperty(
+              rt, piper::PropNameID::forAscii(rt, "bundleName"));
+          if (maybe_bundle_name && maybe_bundle_name->isString()) {
+            bundle_name = maybe_bundle_name->getString(rt).utf8(rt);
+          }
+        }
+        return native_app->LoadCustomSectionScript(key, bundle_name);
+      });
+}
+
+piper::Value LynxProxy::FetchBundle(Runtime &rt) {
+  return Function::createFromHostFunction(
+      rt, PropNameID::forAscii(rt, tasm::kFetchBundle), 1,
+      [this](Runtime &rt, const piper::Value &thisVal, const piper::Value *args,
+             size_t count) -> base::expected<Value, JSINativeException> {
+        auto native_app = native_app_.lock();
+        if (!native_app || native_app->IsDestroying()) {
+          return piper::Value::undefined();
+        }
+
+        if (count < 1) {
+          return base::unexpected(
+              BUILD_JSI_NATIVE_EXCEPTION(std::string(tasm::kFetchBundle) +
+                                         "'s args must has 'url' argument."));
+        }
+
+        if (!args[0].isString()) {
+          return base::unexpected(
+              BUILD_JSI_NATIVE_EXCEPTION(std::string(tasm::kFetchBundle) +
+                                         "'s first param must be a string."));
+        }
+
+        auto bundle_url = args[0].getString(rt).utf8(rt);
+        lepus::Value options;
+        if (count > 1 && args[1].isObject()) {
+          auto lepus_value_opt = native_app->ParseJSValueToLepusValue(
+              std::move(args[1]), PAGE_GROUP_ID);
+          if (!lepus_value_opt) {
+            return base::unexpected(BUILD_JSI_NATIVE_EXCEPTION(
+                "ParseJSValueToLepusValue error in FetchBundle."));
+          }
+          options = std::move(*lepus_value_opt);
+        }
+
+        auto response_promise = std::make_shared<
+            runtime::ResponsePromise<tasm::BundleResourceInfo>>();
+        // invoke fetchBundle & passing ResponsePromise to retrieve result.
+        native_app->FetchBundle(bundle_url, response_promise);
+        auto promise = std::make_shared<ResponseHandlerInJS>(
+            native_app->GetDelegate(), bundle_url, std::move(response_promise),
+            native_app_);
+        return piper::Object::createFromHostObject(rt, promise);
+      });
+}
+
 void LynxProxy::set(Runtime *, const PropNameID &name, const Value &value) {}
 
 std::vector<PropNameID> LynxProxy::getPropertyNames(Runtime &rt) {
-  static const char *kProps[] = {
-      "__globalProps",
-      "__presetData",
-      "getI18nResource",
-      "getComponentContext",
-      "createElement",
-      "fetchDynamicComponent",
-      "reload",
-      "QueryComponent",
-      "addFont",
-      tasm::kGetTextInfo,
-      runtime::kGetDevTool,
-      runtime::kGetJSContext,
-      runtime::kGetCoreContext,
-      runtime::kGetUIContext,
-      runtime::kGetNative,
-      runtime::kGetEngine,
-      runtime::kGetCustomSectionSync,
-      runtime::kQueueMicrotask,
-  };
+  static const char *kProps[] = {"__globalProps",
+                                 "__presetData",
+                                 "getI18nResource",
+                                 "getComponentContext",
+                                 "createElement",
+                                 "fetchDynamicComponent",
+                                 "reload",
+                                 "QueryComponent",
+                                 "addFont",
+                                 tasm::kGetTextInfo,
+                                 runtime::kGetDevTool,
+                                 runtime::kGetJSContext,
+                                 runtime::kGetCoreContext,
+                                 runtime::kGetUIContext,
+                                 runtime::kGetNative,
+                                 runtime::kGetEngine,
+                                 runtime::kGetCustomSectionSync,
+                                 runtime::kQueueMicrotask,
+                                 tasm::kLoadScript,
+                                 tasm::kFetchBundle};
   static constexpr size_t kPropsCount = sizeof(kProps) / sizeof(kProps[0]);
 
   std::vector<PropNameID> vec;

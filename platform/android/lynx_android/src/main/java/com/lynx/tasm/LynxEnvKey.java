@@ -26,7 +26,7 @@ public enum LynxEnvKey {
   ENABLE_REPORT_CREATE_ASYNC_TAG("enable_report_create_async_tag"),
   ENABLE_SVG_ASYNC("enable_svg_async"),
   ENABLE_IMAGE_EVENT_REPORT("enable_image_event_report"),
-
+  ENABLE_IMAGE_ASYNC_LAYOUT("enable_image_async_layout"),
   ENABLE_IMAGE_ASYNC_REDIRECT("enable_image_async_redirect"),
 
   ENABLE_IMAGE_ASYNC_REDIRECT_ON_CREATE("enable_image_async_redirect_create"),
@@ -35,7 +35,10 @@ public enum LynxEnvKey {
   ENABLE_TEXT_BORING_LAYOUT("enable_text_boring_layout"),
   ENABLE_REFRESH_RATE_OPT("enable_refresh_rate_opt"),
   ENABLE_MULTI_JS_THREAD_BY_DEFAULT("enable_multi_js_thread_by_default"),
-  ENABLE_TEXT_LAYOUT_CACHE("enable_text_layout_cache");
+  ENABLE_RECYCLE_RENDER_DATA_LIST_WHILE_RELOAD("enable_recycle_render_data_list_while_reload"),
+  ENABLE_TEXT_LAYOUT_CACHE("enable_text_layout_cache"),
+  MEMORY_ACQUISITION_DELAY_SEC("memory_acquisition_delay_second"),
+  MEMORY_REPORT_INTERVAL_SEC("memory_acquisition_delay_second");
 
   private final String description;
 

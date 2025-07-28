@@ -176,6 +176,38 @@ class ComputedCSSStyle {
                 ->radius_y_bottom_left.GetRawValue()) > 0;
   }
 
+  const NLength& GetSimpleBorderTopLeftRadius() {
+    DCHECK(
+        layout_computed_style_.surround_data_.border_data_->radius_x_top_left ==
+        layout_computed_style_.surround_data_.border_data_->radius_y_top_left);
+    return layout_computed_style_.surround_data_.border_data_
+        ->radius_x_top_left;
+  }
+  const NLength& GetSimpleBorderTopRightRadius() {
+    DCHECK(
+        layout_computed_style_.surround_data_.border_data_
+            ->radius_x_top_right ==
+        layout_computed_style_.surround_data_.border_data_->radius_y_top_right);
+    return layout_computed_style_.surround_data_.border_data_
+        ->radius_x_top_right;
+  }
+  const NLength& GetSimpleBorderBottomLeftRadius() {
+    DCHECK(layout_computed_style_.surround_data_.border_data_
+               ->radius_x_bottom_left ==
+           layout_computed_style_.surround_data_.border_data_
+               ->radius_y_bottom_left);
+    return layout_computed_style_.surround_data_.border_data_
+        ->radius_x_bottom_left;
+  }
+  const NLength& GetSimpleBorderBottomRightRadius() {
+    DCHECK(layout_computed_style_.surround_data_.border_data_
+               ->radius_x_bottom_right ==
+           layout_computed_style_.surround_data_.border_data_
+               ->radius_y_bottom_right);
+    return layout_computed_style_.surround_data_.border_data_
+        ->radius_x_bottom_right;
+  }
+
   base::Vector<TransitionData>& transition_data() {
     CSSStyleUtils::PrepareOptional(transition_data_);
     return *transition_data_;
@@ -495,7 +527,10 @@ class ComputedCSSStyle {
   V(XHandleColor)                        \
   V(OffsetDistance)                      \
   V(OffsetPath)                          \
-  V(OffsetRotate)
+  V(OffsetRotate)                        \
+  V(FontVariationSettings)               \
+  V(FontFeatureSettings)                 \
+  V(FontOpticalSizing)
 
 #define GETTER_STYLE_STRING(name) lepus_value name##ToLepus();
   FOREACH_PLATFORM_PROPERTY(GETTER_STYLE_STRING)

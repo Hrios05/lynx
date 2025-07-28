@@ -34,7 +34,9 @@
 #include "core/renderer/template_entry_holder.h"
 #include "core/renderer/template_themed.h"
 #include "core/renderer/ui_wrapper/layout/list_node.h"
+#include "core/resource/lazy_bundle/bundle_resource_info.h"
 #include "core/resource/lazy_bundle/lazy_bundle_loader.h"
+#include "core/runtime/bindings/common/resource/response_promise.h"
 #include "core/runtime/bindings/lepus/event/context_proxy_in_lepus.h"
 #include "core/runtime/piper/js/template_delegate.h"
 #include "core/runtime/piper/js/update_data_type.h"
@@ -124,7 +126,8 @@ class TemplateAssembler final : public TemplateEntryHolder,
                                 public PageProxy::TasmDelegate,
                                 public lepus::Context::Delegate {
  public:
-  class Delegate : public runtime::ContextProxy::Delegate {
+  class Delegate : public runtime::ContextProxy::Delegate,
+                   public runtime::ResponseHandlerProxy::Delegate {
    public:
     Delegate() = default;
     ~Delegate() override = default;
@@ -157,7 +160,7 @@ class TemplateAssembler final : public TemplateEntryHolder,
                                  const std::string& fallback_url) = 0;
     virtual void SetTiming(tasm::Timing timing) = 0;
 
-    virtual void ReportElementMemoryInfo(float mem_size_byte,
+    virtual void ReportElementMemoryInfo(int64_t mem_size_bytes,
                                          int element_count){};
 
     virtual void BindPipelineIDWithTimingFlag(
@@ -248,7 +251,7 @@ class TemplateAssembler final : public TemplateEntryHolder,
   class LayoutScheduler {
    public:
     LayoutScheduler() = default;
-    ~LayoutScheduler() = default;
+    virtual ~LayoutScheduler() = default;
 
     virtual void RequestLayout(
         const std::shared_ptr<tasm::PipelineOptions>& options) = 0;
@@ -261,16 +264,12 @@ class TemplateAssembler final : public TemplateEntryHolder,
 
   void LoadTemplate(const std::string& url, std::vector<uint8_t> source,
                     const std::shared_ptr<TemplateData>& template_data,
-                    std::shared_ptr<PipelineOptions>& pipeline_options,
-                    const bool enable_pre_painting = false,
-                    bool enable_recycle_template_bundle = false);
+                    std::shared_ptr<PipelineOptions>& pipeline_options);
 
   void LoadTemplateBundle(const std::string& url,
                           LynxTemplateBundle template_bundle,
                           const std::shared_ptr<TemplateData>& template_data,
-                          std::shared_ptr<PipelineOptions>& pipeline_options,
-                          const bool enable_pre_painting = false,
-                          bool enable_dump_element_tree = false);
+                          std::shared_ptr<PipelineOptions>& pipeline_options);
 
   // Diff the entire tree using the new template_data.
   // Refresh the card and component's lifecycle like a new loaded template.
@@ -668,6 +667,11 @@ class TemplateAssembler final : public TemplateEntryHolder,
       RadonLazyComponent* lazy_bundle, const std::string& url,
       const lepus::Value& callback = lepus::Value());
 
+  void FetchBundle(
+      const std::string& bundle_url,
+      const std::shared_ptr<runtime::ResponsePromise<BundleResourceInfo>>&
+          response_promise);
+
   void OnDynamicJSSourcePrepared(const std::string& component_url);
 
   const std::string& TargetSdkVersion() override { return target_sdk_version_; }
@@ -708,6 +712,10 @@ class TemplateAssembler final : public TemplateEntryHolder,
   void CallLepusMethod(const std::string& method_name, lepus::Value args,
                        const piper::ApiCallBack& callback,
                        uint64_t trace_flow_id);
+
+  // currently, this method is provided for use by list
+  lepus::Value CallLepusMethod(const lepus::Value& closure,
+                               const std::vector<lepus::Value>& args);
 
   void PreloadLazyBundles(const std::vector<std::string>& urls);
 
@@ -755,6 +763,8 @@ class TemplateAssembler final : public TemplateEntryHolder,
 
   const PageOptions& GetPageOptions() const { return page_options_; }
 
+  void RequestLayout(const std::shared_ptr<PipelineOptions>& pipeline_options);
+
   // Start pixel pipeline process;
   void RunPixelPipeline();
 
@@ -764,7 +774,14 @@ class TemplateAssembler final : public TemplateEntryHolder,
   // In Embedded mode, we disable event reporter by now.
   bool EnableEventReporter() const { return !IsEmbeddedModeOn(); }
 
+  void RegisterOnLayoutReadyHook(base::closure closure) {
+    on_layout_ready_hooks_.emplace_back(std::move(closure));
+  }
+
  private:
+  void ExecuteOnLayoutReadyHooks();
+  void EnsureOnLayoutReadyHooksFinish();
+
   friend class TemplateBinaryReader;
   friend class TemplateBinaryReaderSSR;
   friend class TemplateEntry;
@@ -989,10 +1006,14 @@ class TemplateAssembler final : public TemplateEntryHolder,
   SignalContext signal_context_;
 
   // Called by ElementManager
-  ElementManagerDelegateImpl element_manager_delegate_{};
+  ElementManagerDelegateImpl element_manager_delegate_{this};
 
   // Manage the lifecycle of all pilepine contexts in current lynx engine.
   std::unique_ptr<PipelineContextManager> pipeline_context_manager_{nullptr};
+
+  base::Vector<base::closure> on_layout_ready_hooks_;
+
+  base::OnceTaskRefptr<void> execute_on_layout_ready_hooks_{nullptr};
 };
 }  // namespace tasm
 }  // namespace lynx

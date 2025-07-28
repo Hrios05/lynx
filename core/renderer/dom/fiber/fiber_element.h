@@ -37,6 +37,21 @@ using ParallelFlushReturn = base::closure;
 using ParallelReduceTaskQueue =
     std::list<base::OnceTaskRefptr<ParallelFlushReturn>>;
 
+enum NodeInfoBits : int32_t {
+  // Mask for layout node type, using lower 16 bits.
+  kLayoutNodeTypeMask = 0x0000FFFF,
+  // Mask for async creation flag.
+  kCreateAsyncMask = 0x00010000,
+};
+
+constexpr const int32_t kCommonBuiltInNodeInfo =
+    (static_cast<int32_t>(LayoutNodeType::COMMON) &
+     NodeInfoBits::kLayoutNodeTypeMask) |
+    NodeInfoBits::kCreateAsyncMask;
+constexpr const int32_t kVirtualBuiltInNodeInfo =
+    (static_cast<int32_t>(LayoutNodeType::VIRTUAL) &
+     NodeInfoBits::kLayoutNodeTypeMask);
+
 class FiberElement : public Element,
                      public SelectorItem,
                      public style::SimpleStyleNode {
@@ -159,6 +174,9 @@ class FiberElement : public Element,
   // Flag used for SimpleStyling, if the style_object_list is modified, we need
   // to resolve the styles again to reset those properties which are removed.
   static constexpr uint32_t kDirtyStyleObjects = 0x01 << 13;
+
+  // Flag used for cloned element, need to re-apply animation styles.
+  static constexpr uint32_t kDirtyCloned = 0x01 << 14;
 
   // TODO(zhouzhitao): kSyncResolving and kResolving status will be merged later
   // with the removal of parallel_flush_ flag
@@ -667,7 +685,7 @@ class FiberElement : public Element,
    * Special API for processing Font size
    * font size should be handled at the beginning
    */
-  void SetFontSize();
+  void SetFontSize(const tasm::CSSValue& value);
 
   void ResetFontSize();
 
@@ -923,9 +941,6 @@ class FiberElement : public Element,
   inline bool IsAsyncFlushRoot() const { return is_async_flush_root_; }
   inline void MarkAsyncFlushRoot(bool value) { is_async_flush_root_ = value; }
 
-  virtual void BuildAttributedStringProps(size_t start, size_t end,
-                                          PropArray* props) {}
-
  protected:
   FiberElement(const FiberElement& element, bool clone_resolved_props);
 
@@ -981,7 +996,11 @@ class FiberElement : public Element,
 
   void UpdateLayoutInfoRecursively();
 
+  void DispatchLayoutBeforeRecursively();
+
   void SetMeasureFunc(void* context, starlight::SLMeasureFunc measure_func);
+  void SetAlignmentFunc(void* context,
+                        starlight::SLAlignmentFunc alignment_func);
 
   virtual void OnLayoutObjectCreated() {}
 
@@ -1056,6 +1075,8 @@ class FiberElement : public Element,
   bool IfNeedsUpdateLayoutInfo();
 
   void EnsureSLNode();
+
+  virtual void DispatchLayoutBefore(){};
 
   // relevant to hierarchy
   base::InlineVector<fml::RefPtr<FiberElement>, kChildrenInlineVectorSize>

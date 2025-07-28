@@ -12,6 +12,7 @@
 #import <Lynx/LynxUIListContainer.h>
 #import <Lynx/LynxUIMethodProcessor.h>
 #import <Lynx/UIScrollView+Lynx.h>
+
 #import "LynxUIContext+Internal.h"
 
 static const CGFloat kLynxListContainerInvalidScrollEstimatedOffset = -1.0;
@@ -31,10 +32,35 @@ typedef NS_ENUM(NSInteger, LynxListScrollState) {
 
 @implementation LynxListContainerComponentWrapper
 
-- (void)addListItemView:(UIView *)listItemView withFrame:(CGRect)frame {
+- (void)addListItemView:(UIView *)listItemView
+              withFrame:(CGRect)frame
+           addSubLayers:(BOOL)addSubLayers
+      adjustLayersFrame:(BOOL)adjustLayersFrame {
   self.frame = frame;
   listItemView.frame = [LynxListContainerComponentWrapper getAlignedFrame:frame];
   [self addSubview:listItemView];
+  if (self.holdingUI && self.holdingUI.backgroundManager) {
+    LynxBackgroundManager *backgroundManager = self.holdingUI.backgroundManager;
+    // Move the borderLayer and backgroundLayer of the ListItemView to the wrapperView.
+    if (addSubLayers) {
+      // Note: If list-item is new created, all layers are added to WrapperView's layer in
+      // OnNodeReady(), but if list-item is reused we need to execute add sub layers.
+      CALayer *listItemViewLayer = self.holdingUI.view.layer;
+      if (backgroundManager.borderLayer) {
+        [backgroundManager.borderLayer removeFromSuperlayer];
+        [self.layer insertSublayer:backgroundManager.borderLayer above:listItemViewLayer];
+      }
+      if (backgroundManager.backgroundLayer) {
+        [backgroundManager.backgroundLayer removeFromSuperlayer];
+        [self.layer insertSublayer:backgroundManager.backgroundLayer below:listItemViewLayer];
+      }
+    }
+    // Adjust all related layers (background, border and mask layers).
+    if (adjustLayersFrame) {
+      NSValue *value = [NSValue valueWithCGRect:listItemView.frame];
+      [self.holdingUI setLayerValue:value forKeyPath:@"frame" forAllLayers:YES];
+    }
+  }
 }
 
 + (CGRect)getAlignedFrame:(CGRect)frame {
@@ -212,11 +238,11 @@ LYNX_REGISTER_UI("list-container")
     _previousContentOffset = CGPointMake(contentOffsetBeforeSizeChange.x + _targetDelta.x,
                                          contentOffsetBeforeSizeChange.y + _targetDelta.y);
 
-    // The filtering logic here has a relatively big risk because the contentOffset might be
-    // modified externally through KVO. However, if there is no filtering, incorrect behavior will
-    // occur in the refresh scenario.
-    // TODO(xiamengfei.moonface): Use a way similar to Android to replace MJRefresh to implement the
-    // pull-down refreshing.
+    // The filtering logic here has a relatively big risk because the
+    // contentOffset might be modified externally through KVO. However, if there
+    // is no filtering, incorrect behavior will occur in the refresh scenario.
+    // TODO(xiamengfei.moonface): Use a way similar to Android to replace
+    // MJRefresh to implement the pull-down refreshing.
     if (self.disableFilterScroll || (contentSizeChanged || deltaChanged)) {
       [self.view setLynxListAdjustingContentOffset:YES];
       self.view.contentOffset = CGPointMake(
@@ -238,7 +264,8 @@ LYNX_REGISTER_UI("list-container")
 }
 
 - (void)updateContentSize {
-  // Override the old updateContentSize and do nothing. Use contentSize from c++.
+  // Override the old updateContentSize and do nothing. Use contentSize from
+  // c++.
 }
 
 - (void)insertChild:(LynxUI *)child atIndex:(NSInteger)index {
@@ -281,20 +308,35 @@ LYNX_REGISTER_UI("list-container")
   if (self.enableListSticky && self.updateStickyForDiff) {
     [self.stickyTopItemKeySet removeAllObjects];
     [self.stickyBottomItemKeySet removeAllObjects];
-    // Generate sticky top item key set
-    [self.stickyTopIndexes
-        enumerateObjectsUsingBlock:^(NSNumber *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
-          NSInteger index = obj.integerValue;
-          if (index >= 0 && (NSUInteger)index < self.itemKeys.count) {
-            [self.stickyTopItemKeySet addObject:self.itemKeys[index]];
-          }
-        }];
-    // Generate sticky bottom item key set
-    [self.stickyBottomIndexes
-        enumerateObjectsUsingBlock:^(NSNumber *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
-          NSInteger index = obj.integerValue;
-          if (index >= 0 && (NSUInteger)index < self.itemKeys.count) {
-            [self.stickyBottomItemKeySet addObject:self.itemKeys[index]];
+    // Generate sticky item key set
+    [self updateStickyItemKeySet:self.stickyTopItemKeySet
+               andStickyItemDict:self.stickyTopListItemDict
+                     withIndexes:self.stickyTopIndexes];
+    [self updateStickyItemKeySet:self.stickyBottomItemKeySet
+               andStickyItemDict:self.stickyBottomListItemDict
+                     withIndexes:self.stickyBottomIndexes];
+  }
+}
+
+- (void)updateStickyItemKeySet:(NSMutableSet<NSString *> *)stickyItemKeySet
+             andStickyItemDict:(NSMutableDictionary<NSString *, LynxUIComponent *> *)stickyItemDict
+                   withIndexes:(NSArray<NSNumber *> *)stickyIndexes {
+  // Generate item key set
+  [stickyIndexes
+      enumerateObjectsUsingBlock:^(NSNumber *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
+        NSInteger index = obj.integerValue;
+        if (index >= 0 && (NSUInteger)index < self.itemKeys.count) {
+          [stickyItemKeySet addObject:self.itemKeys[index]];
+        }
+      }];
+  if (stickyItemDict.count) {
+    // Remove item from sticky dict if not sticky.
+    [[stickyItemDict copy]
+        enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, LynxUIComponent *_Nonnull obj,
+                                            BOOL *_Nonnull stop) {
+          if (key != nil && obj != nil && ![stickyItemKeySet containsObject:key]) {
+            [self resetStickyItem:obj];
+            [stickyItemDict removeObjectForKey:key];
           }
         }];
   }
@@ -305,24 +347,36 @@ LYNX_REGISTER_UI("list-container")
   LynxListContainerComponentWrapper *wrapper =
       (LynxListContainerComponentWrapper *)component.view.superview;
   if ([wrapper isKindOfClass:LynxListContainerComponentWrapper.class]) {
-    [wrapper addListItemView:component.view withFrame:component.frame];
+    [wrapper addListItemView:component.view
+                   withFrame:component.frame
+                addSubLayers:NO
+           adjustLayersFrame:YES];
     wrapper.layer.zPosition = component.zIndex;
   }
   if (self.enableListSticky && self.updateStickyForDiff) {
-    // This callback is invoked by component's onNodeReady(), which means component has valid
-    // item-key info, so handle component's item-key changed for sticky.
+    // This callback is invoked by component's onNodeReady(), which means
+    // component has valid item-key info, so handle component's item-key changed
+    // for sticky.
     NSString *itemKey = component.itemKey;
     if (itemKey != nil) {
       if ([self.stickyTopItemKeySet containsObject:itemKey]) {
         // Update sticky top list item dict.
-        [self updateStickyItemDictWithItem:component stickyItemDict:self.stickyTopListItemDict];
+        [self updateStickyItemDictWithItem:component
+                            stickyItemDict:self.stickyTopListItemDict
+                                  isSticky:YES];
       } else if ([self.stickyBottomItemKeySet containsObject:itemKey]) {
         // Update sticky bottom list item dict.
-        [self updateStickyItemDictWithItem:component stickyItemDict:self.stickyBottomListItemDict];
+        [self updateStickyItemDictWithItem:component
+                            stickyItemDict:self.stickyBottomListItemDict
+                                  isSticky:YES];
       } else {
         // Not sticky top or bottom list item, remove it from dict.
-        [self.stickyTopListItemDict removeObjectForKey:itemKey];
-        [self.stickyBottomListItemDict removeObjectForKey:itemKey];
+        [self updateStickyItemDictWithItem:component
+                            stickyItemDict:self.stickyTopListItemDict
+                                  isSticky:NO];
+        [self updateStickyItemDictWithItem:component
+                            stickyItemDict:self.stickyBottomListItemDict
+                                  isSticky:NO];
       }
     }
   }
@@ -330,29 +384,46 @@ LYNX_REGISTER_UI("list-container")
 
 - (void)updateStickyItemDictWithItem:(LynxUIComponent *)component
                       stickyItemDict:
-                          (NSMutableDictionary<NSString *, LynxUIComponent *> *)stickyItemDict {
+                          (NSMutableDictionary<NSString *, LynxUIComponent *> *)stickyItemDict
+                            isSticky:(BOOL)isSticky {
   if (component && component.itemKey) {
-    NSString *newUpdatedItemKey = component.itemKey;
-    if (stickyItemDict[newUpdatedItemKey] == component) {
-      // No need to update sticky item dict.
-      return;
+    if (isSticky) {
+      NSString *newUpdatedItemKey = component.itemKey;
+      if (stickyItemDict[newUpdatedItemKey] == component) {
+        // No need to update sticky item dict.
+        return;
+      }
+      [[stickyItemDict copy]
+          enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, LynxUIComponent *_Nonnull obj,
+                                              BOOL *_Nonnull stop) {
+            if (![newUpdatedItemKey isEqualToString:key] && obj == component) {
+              // Delete old and insert new <item-key, list-item> pair to finish
+              // updating item-key.
+              [stickyItemDict removeObjectForKey:key];
+              [stickyItemDict setObject:component forKey:newUpdatedItemKey];
+              *stop = YES;
+            }
+          }];
+    } else {
+      // The component is not sticky top or bottom list item, remove it from dict.
+      [[stickyItemDict copy]
+          enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, LynxUIComponent *_Nonnull obj,
+                                              BOOL *_Nonnull stop) {
+            if (obj == component) {
+              // Delete old <item-key, list-item> pair.
+              [stickyItemDict removeObjectForKey:key];
+              [self resetStickyItem:component];
+              *stop = YES;
+            }
+          }];
     }
-    [[stickyItemDict copy]
-        enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, LynxUIComponent *_Nonnull obj,
-                                            BOOL *_Nonnull stop) {
-          if (![newUpdatedItemKey isEqualToString:key] && obj == component) {
-            // Delete old and insert new <item-key, list-item> pair to finish updating item-key.
-            [stickyItemDict removeObjectForKey:key];
-            [stickyItemDict setObject:component forKey:newUpdatedItemKey];
-            *stop = YES;
-          }
-        }];
   }
 }
 
 - (void)onAsyncComponentLayoutUpdated:(LynxUIComponent *)component
                           operationID:(int64_t)operationID {
-  // If enable batch render, no need to insert platform view in finishLayoutOperation()
+  // If enable batch render, no need to insert platform view in
+  // finishLayoutOperation()
   if (!self.enableBatchRender) {
     [self insertListComponent:component];
   }
@@ -364,7 +435,10 @@ LYNX_REGISTER_UI("list-container")
     LynxListContainerComponentWrapper *wrapper = [[LynxListContainerComponentWrapper alloc] init];
     wrapper.holdingUI = component;
     [component.view removeFromSuperview];
-    [wrapper addListItemView:component.view withFrame:component.frame];
+    [wrapper addListItemView:component.view
+                   withFrame:component.frame
+                addSubLayers:YES
+           adjustLayersFrame:NO];
     [self.view addSubview:wrapper];
     wrapper.layer.zPosition = component.zIndex;
     // Invoke fade-in animation.
@@ -383,11 +457,12 @@ LYNX_REGISTER_UI("list-container")
   }
   if (self.enableListSticky) {
     if (self.updateStickyForDiff) {
-      // This method is invoked in FinishLayoutOperation or by c++ list element which means
-      // component has valid item-key info.
+      // This method is invoked in FinishLayoutOperation or by c++ list element
+      // which means component has valid item-key info.
       NSString *itemKey = component.itemKey;
       if (itemKey != nil) {
-        // Add <item-key, list-item> to dict if current component is sticky item.
+        // Add <item-key, list-item> to dict if current component is sticky
+        // item.
         if ([self.stickyTopItemKeySet containsObject:itemKey]) {
           [self.stickyTopListItemDict setObject:component forKey:itemKey];
         } else if ([self.stickyBottomItemKeySet containsObject:itemKey]) {
@@ -414,7 +489,8 @@ LYNX_REGISTER_UI("list-container")
     if (self.updateStickyForDiff) {
       NSString *itemKey = component.itemKey;
       if (itemKey != nil) {
-        // Remove <item-key, list-item> from dict if current component is sticky item.
+        // Remove <item-key, list-item> from dict if current component is sticky
+        // item.
         if ([self.stickyTopListItemDict objectForKey:itemKey]) {
           [self.stickyTopListItemDict removeObjectForKey:itemKey];
           if (self.enableRecycleStickyItem) {
@@ -459,12 +535,11 @@ LYNX_PROP_SETTER("item-snap", setPagingAlignment, NSDictionary *) {
       [NSException raise:@"item-snap arguments invalid!"
                   format:@"The factor should be constrained to the range of [0,1]."];
       [self.context
-          reportLynxError:
-              [LynxError
-                  lynxErrorWithCode:ECLynxComponentListInvalidPropsArg
-                            message:@"item-snap invalid!"
-                      fixSuggestion:@"The factor should be constrained to the range of [0,1]."
-                              level:LynxErrorLevelWarn]];
+          reportLynxError:[LynxError lynxErrorWithCode:ECLynxComponentListInvalidPropsArg
+                                               message:@"item-snap invalid!"
+                                         fixSuggestion:@"The factor should be constrained "
+                                                       @"to the range of [0,1]."
+                                                 level:LynxErrorLevelWarn]];
       factor = 0;
     }
     CGFloat offset = [value[@"offset"] doubleValue];
@@ -851,8 +926,8 @@ LYNX_UI_METHOD(autoScroll) {
     CGFloat rate = [self toPtWithUnitValue:[params objectForKey:@"rate"] fontSize:0];
     NSInteger preferredFramesPerSecond = 1000 / 16;
 
-    // We can not move less than 1/scale pt in every frame, cause contentOffset will align to
-    // 1/scale.
+    // We can not move less than 1/scale pt in every frame, cause contentOffset
+    // will align to 1/scale.
     while (ABS(rate / preferredFramesPerSecond) < 1.0 / UIScreen.mainScreen.scale) {
       preferredFramesPerSecond -= 1;
       if (preferredFramesPerSecond == 0) {
@@ -1003,7 +1078,8 @@ LYNX_UI_METHOD(scrollToPosition) {
                                    smooth:smooth];
 
     if (!smooth) {
-      // TODO(xiamengfei.moonface) Invoke callback after ListElement did scroll on Most_On_Tasm
+      // TODO(xiamengfei.moonface) Invoke callback after ListElement did scroll
+      // on Most_On_Tasm
       callback(kUIMethodSuccess, nil);
     }
   } else {
@@ -1026,8 +1102,8 @@ LYNX_UI_METHOD(scrollToPosition) {
     __weak __typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (600 * NSEC_PER_MSEC)),
                    dispatch_get_main_queue(), ^{
-                     // Ensure that our scroll will be finished. It should be finished in 300ms,
-                     // accroding to UIKit.
+                     // Ensure that our scroll will be finished. It should be
+                     // finished in 300ms, accroding to UIKit.
 
                      if (scrollRequestId == weakSelf.scrollRequestId &&
                          ((LynxListContainerView *)(weakSelf.view)).scrollEstimatedOffset !=
@@ -1106,10 +1182,9 @@ LYNX_UI_METHOD(getVisibleCells) {
                                              y:[self clampToValidScrollEdge:YES]
                                      originalX:self.view.contentOffset.x
                                      originalY:self.view.contentOffset.y];
+    [self updateStickyTops];
+    [self updateStickyBottoms];
   }
-  [self updatePreviousContentOffset];
-  [self updateStickyTops];
-  [self updateStickyBottoms];
 }
 
 - (void)updatePreviousContentOffset {
@@ -1119,8 +1194,8 @@ LYNX_UI_METHOD(getVisibleCells) {
 }
 
 - (CGFloat)clampToValidScrollEdge:(BOOL)isVertical {
-  // The `contentInset` should not be took into account, cause that ListElement will not recognize
-  // this iOS only feat
+  // The `contentInset` should not be took into account, cause that ListElement
+  // will not recognize this iOS only feat
   if (isVertical) {
     CGFloat validOffsetY = MAX(0, self.view.contentOffset.y);
     validOffsetY = MIN(validOffsetY, [self orientationMaxScrollableDistance]);
@@ -1345,7 +1420,8 @@ LYNX_UI_METHOD(getVisibleCells) {
     return;
   }
 
-  // Mark finish scroll and notify ListElement to stop updating offset to platform
+  // Mark finish scroll and notify ListElement to stop updating offset to
+  // platform
 
   ((LynxListContainerView *)(self.view)).scrollEstimatedOffset =
       kLynxListContainerInvalidScrollEstimatedOffset;
@@ -1459,7 +1535,8 @@ LYNX_UI_METHOD(getVisibleCells) {
     return hitTarget;
   }
   // if the zIndex of cells are assigned according to their index
-  // we then use containsPoints to test each cell form the max zIndex to the min zIndex.
+  // we then use containsPoints to test each cell form the max zIndex to the min
+  // zIndex.
   NSArray<LynxListContainerComponentWrapper *> *visibleCells = self.view.subviews;
   NSArray<LynxListContainerComponentWrapper *> *visibleCellsSortedByZIndexReversely =
       [visibleCells sortedArrayUsingComparator:^NSComparisonResult(

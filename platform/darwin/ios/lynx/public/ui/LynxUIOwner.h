@@ -19,6 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class LynxWeakProxy;
 @class LynxGestureDetectorDarwin;
 @class LynxGestureArenaManager;
+@class LynxMemoryRecord;
+@class LynxTextRenderManager;
 
 @protocol LynxBaseInspectorOwner;
 @protocol LynxForegroundProtocol;
@@ -41,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) id<LynxBaseInspectorOwner> baseInspectOwner;
 @property(nonatomic, strong) LynxGestureArenaManager* _Nullable gestureArenaManager;
 @property(nonatomic) attachLynxPageUI attachLynxPageUICallback;
+@property(nonatomic, readonly) LynxTextRenderManager* textRenderManager;
 
 - (void)attachContainerView:(UIView<LUIBodyView>* _Nonnull)containerView;
 - (instancetype)initWithContainerView:(UIView<LUIBodyView>*)containerView
@@ -170,6 +173,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)didMoveToWindow:(BOOL)windowIsNil;
 
 - (void)updateAnimationKeyframes:(NSDictionary*)keyframesDict;
+
+- (NSDictionary<NSString*, LynxMemoryRecord*>*)getMemoryUsage;
+
+- (Boolean)isLayoutInElementModeOn;
 
 #pragma mark - A11y
 - (NSArray<LynxUI*>*)uiWithA11yID:(NSString*)a11yID;

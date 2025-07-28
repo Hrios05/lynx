@@ -26,7 +26,10 @@ import com.lynx.tasm.behavior.event.EventTarget;
 import com.lynx.tasm.behavior.shadow.text.TextHelper;
 import com.lynx.tasm.behavior.shadow.text.TextUpdateBundle;
 import com.lynx.tasm.behavior.ui.LynxFlattenUI;
+import com.lynx.tasm.behavior.ui.LynxUI;
+import com.lynx.tasm.behavior.ui.ViewInfo;
 import com.lynx.tasm.utils.UIThreadUtils;
+import java.lang.ref.WeakReference;
 
 public class FlattenUIText extends LynxFlattenUI implements IUIText {
   private Layout mTextLayout;
@@ -36,17 +39,20 @@ public class FlattenUIText extends LynxFlattenUI implements IUIText {
   private boolean mIsJustify;
   private CharSequence mOriginText;
   private TextUpdateBundle mTextBundle;
-  private Drawable.Callback mCallback = new DrawableCallback();
 
   @Deprecated
   public FlattenUIText(Context context) {
-    super((LynxContext) context);
+    this((LynxContext) context);
   }
 
   public FlattenUIText(LynxContext context) {
-    super(context);
+    this(context, null);
+  }
+
+  public FlattenUIText(LynxContext context, Object params) {
+    super(context, params);
     mAccessibilityElementStatus = ACCESSIBILITY_ELEMENT_TRUE;
-    if (mContext.isTextOverflowEnabled()) {
+    if (mContext.isTextOverflowEnabled() && !mContext.isLayoutInElementModeOn()) {
       mOverflow = OVERFLOW_XY;
     }
   }
@@ -86,7 +92,7 @@ public class FlattenUIText extends LynxFlattenUI implements IUIText {
     mOriginText = bundle.getOriginText();
     if (mHasImage && getText() instanceof Spanned) {
       Spanned spannable = (Spanned) getText();
-      AbsInlineImageSpan.possiblyUpdateInlineImageSpans(spannable, mCallback);
+      AbsInlineImageSpan.possiblyUpdateInlineImageSpans(spannable, new DrawableCallback(this));
     }
     invalidate();
   }
@@ -101,7 +107,12 @@ public class FlattenUIText extends LynxFlattenUI implements IUIText {
       AbsInlineImageSpan[] spans = text.getSpans(0, text.length(), AbsInlineImageSpan.class);
       for (AbsInlineImageSpan span : spans) {
         span.onDetachedFromWindow();
-        span.setCallback(null);
+        // TODO(songshourui.null): In non-engine reuse scenarios, we can also remove the
+        // setCallback(null) logic. Keeping the callback will only trigger a single invalidation,
+        // and will not result in rendering content errors.
+        if (!getLynxContext().isEnginePoolEnabled()) {
+          span.setCallback(null);
+        }
       }
     }
   }
@@ -208,14 +219,34 @@ public class FlattenUIText extends LynxFlattenUI implements IUIText {
         mTextTranslateOffset, ignoreUserInteraction);
   }
 
-  private class DrawableCallback implements Drawable.Callback {
+  static class DrawableCallback implements Drawable.Callback {
+    private final WeakReference<FlattenUIText> mWeakText;
+    private WeakReference<ViewInfo> mWeakViewInfo;
+
+    public DrawableCallback(FlattenUIText text) {
+      mWeakText = new WeakReference<>(text);
+      if (text.getLynxContext().isEnginePoolEnabled() && text.mDrawParent instanceof LynxUI) {
+        mWeakViewInfo = new WeakReference<>(((LynxUI) text.mDrawParent).getViewInfo());
+      }
+    }
+
     @Override
     public void invalidateDrawable(@NonNull Drawable who) {
       if (!UIThreadUtils.isOnUiThread()) {
         // TextLayoutWarmer may invalidate on another thread
         return;
       }
-      FlattenUIText.this.invalidate();
+
+      ViewInfo info = mWeakViewInfo != null ? mWeakViewInfo.get() : null;
+
+      if (info != null) {
+        info.invalidate();
+      } else {
+        FlattenUIText text = mWeakText.get();
+        if (text != null) {
+          text.invalidate();
+        }
+      }
     }
 
     @Override

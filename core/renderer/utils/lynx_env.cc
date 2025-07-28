@@ -278,6 +278,16 @@ uint32_t LynxEnv::GetMemoryChangeThresholdMb() {
   return static_cast<uint32_t>(GetLongEnv(Key::MEMORY_CHANGE_THRESHOLD_MB, 0));
 }
 
+uint32_t LynxEnv::GetMemoryAcquisitionDelaySec() {
+  return static_cast<uint32_t>(
+      GetLongEnv(Key::MEMORY_ACQUISITION_DELAY_SEC, 2));
+}
+
+uint32_t LynxEnv::GetMemoryReportIntervalSec() {
+  return static_cast<uint32_t>(
+      GetLongEnv(Key::MEMORY_REPORT_INTERVAL_SEC, 20 * 60));
+}
+
 bool LynxEnv::IsDevToolConnected() {
   return GetBoolEnv(Key::DEVTOOL_CONNECTED, false, EnvType::LOCAL);
 }
@@ -453,5 +463,10 @@ bool LynxEnv::EnableFiberElementMemoryReport() {
 bool LynxEnv::FixFontSizeOverrideDirectionChangeBug() {
   return GetBoolEnv(Key::FIX_FONT_SIZE_OVERRIDE_DIRECTION_CHANGE_BUG, true);
 }
+
+bool LynxEnv::EnableNewAnimatorOnPatchFinishOpt() {
+  return GetBoolEnv(Key::ENABLE_NEW_ANIMATOR_ON_PATCH_FINISH_OPT, true);
+}
+
 }  // namespace tasm
 }  // namespace lynx

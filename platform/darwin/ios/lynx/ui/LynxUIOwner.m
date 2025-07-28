@@ -14,6 +14,7 @@
 #import <Lynx/LynxRootUI.h>
 #import <Lynx/LynxService.h>
 #import <Lynx/LynxShadowNodeOwner.h>
+#import <Lynx/LynxTextRenderManager.h>
 #import <Lynx/LynxTraceEvent.h>
 #import <Lynx/LynxTraceEventDef.h>
 #import <Lynx/LynxTraceEventWrapper.h>
@@ -35,6 +36,7 @@
 #import "LynxEnv+Internal.h"
 #import "LynxFeatureCounter.h"
 #import "LynxGestureArenaManager.h"
+#import "LynxMemoryRecord.h"
 #import "LynxUI+Private.h"
 #import "LynxUIContext+Internal.h"
 #import "LynxUIIntersectionObserver.h"
@@ -159,6 +161,9 @@ extern NSString* const kDefaultComponentID;
     _embeddedMode = embeddedMode;
     if (embeddedMode != LynxEmbeddedModeUnset) {
       [LynxComponentScopeRegistry registerBuiltInBehaviors:_componentRegistry];
+    }
+    if ([self isLayoutInElementModeOn]) {
+      _textRenderManager = [[LynxTextRenderManager alloc] init];
     }
     _componentSet = [[NSMutableSet alloc] init];
     _a11yIDHolder = [[NSMutableDictionary alloc] init];
@@ -1114,6 +1119,36 @@ extern NSString* const kDefaultComponentID;
   }
 }
 
+- (NSDictionary<NSString*, LynxMemoryRecord*>*)getMemoryUsage {
+  if ([_uiHolder count] == 0) {
+    return nil;
+  }
+  NSMutableDictionary<NSString*, LynxMemoryRecord*>* uiMemUsage = [NSMutableDictionary dictionary];
+  [_uiHolder enumerateKeysAndObjectsUsingBlock:^(NSNumber* _Nonnull key, LynxUI* _Nonnull obj,
+                                                 BOOL* _Nonnull stop) {
+    NSString* tag = [obj tagName];
+    if (!tag) {
+      return;
+    }
+    float objSizeKb = [obj memoryUsageKB];
+    LynxMemoryRecord* record = [uiMemUsage objectForKey:tag];
+    if (!record) {
+      record = [[LynxMemoryRecord alloc] initWithCategory:tag sizeBytes:0.f detail:nil];
+      [uiMemUsage setObject:record forKey:tag];
+    }
+    record.instanceCount++;
+    record.sizeBytes += objSizeKb;
+    NSDictionary* dict = [obj memoryUsageDetail];
+    if (dict) {
+      if (!record.detail) {
+        record.detail = [NSMutableDictionary dictionary];
+      }
+      [(NSMutableDictionary<NSString*, NSString*>*)record.detail addEntriesFromDictionary:dict];
+    }
+  }];
+  return [uiMemUsage copy];
+}
+
 - (void)pauseRootLayoutAnimation {
   _rootUI.layoutAnimationRunning = NO;
 }
@@ -1513,6 +1548,10 @@ extern NSString* const kDefaultComponentID;
     }
   }
   LYNX_TRACE_END_SECTION(LYNX_TRACE_CATEGORY_WRAPPER);
+}
+
+- (Boolean)isLayoutInElementModeOn {
+  return (_embeddedMode & LynxEmbeddedModeLayoutInElement) > 0;
 }
 
 @end

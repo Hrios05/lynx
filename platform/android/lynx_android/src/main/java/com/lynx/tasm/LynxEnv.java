@@ -166,6 +166,8 @@ public class LynxEnv {
 
   protected boolean mEnableImageEventReport = false;
 
+  protected boolean mEnableImageAsyncLayout = true;
+
   // Whether enable reporting image memory with new protocol
   protected boolean mEnableImageMemoryReport = false;
 
@@ -190,6 +192,7 @@ public class LynxEnv {
   private boolean mForceDisableQuickJsCache = false;
 
   private boolean mEnableTextLayoutCache = true;
+  private boolean mEnableRecycleRenderDataListWhileReload = false;
 
   protected LynxEnv() {}
 
@@ -317,6 +320,7 @@ public class LynxEnv {
     initEnableRefreshRateOpt();
     initEnableCheckAccessFromNonUiThread();
     initEnableTextLayoutCache();
+    initEnableRecycleRenderDataListWhileReload();
 
     ICURegister.loadLibrary(mLibraryLoader);
     // notify LynxEnv prepared
@@ -924,6 +928,23 @@ public class LynxEnv {
     return mCreateViewAsync;
   }
 
+  public String getMemoryAcquisitionDelaySec() {
+    return getStringFromExternalEnv(LynxEnvKey.MEMORY_ACQUISITION_DELAY_SEC);
+  }
+
+  public long getMemoryReportIntervalSec() {
+    String value = getStringFromExternalEnv(LynxEnvKey.MEMORY_ACQUISITION_DELAY_SEC);
+    // default is 20 min.
+    long delay = 20 * 60;
+    if (value != null && !value.isEmpty()) {
+      try {
+        delay = Long.parseLong(value);
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    return delay;
+  }
+
   public boolean getVsyncAlignedFlushGlobalSwitch() {
     return mVsyncAlignedFlushGlobalSwitch;
   }
@@ -1226,6 +1247,10 @@ public class LynxEnv {
     return mEnableImageAsyncRequest;
   }
 
+  public boolean enableImageAsyncLayout() {
+    return mEnableImageAsyncLayout;
+  }
+
   protected void initImageExperimentSettings() {
     mDisableImagePostProcessor =
         getBooleanFromExternalEnv(LynxEnvKey.DISABLE_POST_PROCESSOR, false);
@@ -1238,6 +1263,7 @@ public class LynxEnv {
         getBooleanFromExternalEnv(LynxEnvKey.ENABLE_IMAGE_ASYNC_REQUEST, false);
     mEnableImageEventReport =
         getBooleanFromExternalEnv(LynxEnvKey.ENABLE_IMAGE_EVENT_REPORT, false);
+    mEnableImageAsyncLayout = getBooleanFromExternalEnv(LynxEnvKey.ENABLE_IMAGE_ASYNC_LAYOUT, true);
   }
 
   /**
@@ -1324,6 +1350,19 @@ public class LynxEnv {
 
   protected void initEnableTextLayoutCache() {
     mEnableTextLayoutCache = getBooleanFromExternalEnv(LynxEnvKey.ENABLE_TEXT_LAYOUT_CACHE, true);
+  }
+
+  /**
+   * @brief Get whether to enable recycle render data list while reload
+   * @return enable
+   */
+  protected boolean enableEnableRecycleRenderDataListWhileReload() {
+    return mEnableRecycleRenderDataListWhileReload;
+  }
+
+  private void initEnableRecycleRenderDataListWhileReload() {
+    mEnableRecycleRenderDataListWhileReload =
+        getBooleanFromExternalEnv(LynxEnvKey.ENABLE_RECYCLE_RENDER_DATA_LIST_WHILE_RELOAD, false);
   }
 
   protected void initLynxTrailService(Context context) {

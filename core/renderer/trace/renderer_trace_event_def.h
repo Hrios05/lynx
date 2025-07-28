@@ -202,6 +202,18 @@ inline constexpr const char* const PAGE_PROXY_SSR_DISPATCH = "SSR::Dispatch";
 inline constexpr const char* const PAGE_PROXY_SSR_PROCESS_SCRIPT =
     "SSR::ProcessScript";
 
+inline constexpr const char* const
+    TEMPLATE_ASSEMBLER_EXECUTE_ON_LAYOUT_READY_HOOKS =
+        "TemplateAssembler::ExecuteOnLayoutReadyHooks";
+inline constexpr const char* const
+    TEMPLATE_ASSEMBLER_ASYNC_EXECUTE_ON_LAYOUT_READY_HOOKS =
+        "TemplateAssembler::AsyncExecuteOnLayoutReadyHooks";
+inline constexpr const char* const
+    TEMPLATE_ASSEMBLER_ENSURE_ON_LAYOUT_READY_HOOKS_FINISH =
+        "TemplateAssembler::EnsureOnLayoutReadyHooksFinish";
+inline constexpr const char* const TEMPLATE_ASSEMBLER_ENSURE_ON_LAYOUT_AFTER =
+    "TemplateAssembler::OnLayoutAfter";
+
 inline constexpr const char* const TEMPLATE_ASSEMBLER_SCOPE_CONSTRUCTOR =
     "TemplateAssembler::Scope::Scope";
 inline constexpr const char* const TEMPLATE_ASSEMBLER_CONSTRUCTOR =
@@ -214,6 +226,8 @@ inline constexpr const char* const SEND_LAZY_BUNDLE_GLOBAL_EVENT =
     "TemplateAssembler::SendLazyBundleGlobalEvent";
 inline constexpr const char* const TEMPLATE_ASSEMBLER_CALL_LEPUS_METHOD =
     "TemplateAssembler::CallLepusMethod";
+inline constexpr const char* const TEMPLATE_ASSEMBLER_FETCH_BUNDLE =
+    "TemplateAssembler::FetchBundle";
 inline constexpr const char* const LYNX_UPDATE_GLOBAL_PROPS =
     "LynxUpdateGlobalProps";
 inline constexpr const char* const TEMPLATE_ENTRY_SET_INIT_DATA =
@@ -1143,6 +1157,9 @@ inline constexpr const char* const SIGNAL_CONTEXT_COMPLETE_UPDATES_EFFECTS =
 
 inline constexpr const char* const UI_OPERATION_QUEUE_MARK_TIMING =
     "UIOperationQueue::MarkUIOperationQueueFlushTimingTask";
+inline constexpr const char* const
+    UI_OPERATION_QUEUE_SET_NEED_MARK_PAINT_END_TIMING =
+        "UIOperationQueue::SetNeedMarkPaintEndTiming";
 
 inline constexpr const char* const UI_OPERATION_QUEUE_CONSUME_GESTURE =
     "UIOperationQueue::ConsumeGesture";

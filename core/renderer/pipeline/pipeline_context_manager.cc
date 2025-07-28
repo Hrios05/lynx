@@ -20,6 +20,11 @@ PipelineContextManager::PipelineContextManager(
 PipelineContext* PipelineContextManager::CreateAndUpdateCurrentPipelineContext(
     const std::shared_ptr<PipelineOptions>& pipeline_options,
     bool is_major_updated) {
+  // TODO(yangguangzhao): optimize this logic, maybe can move to observer.
+  if (on_create_hook_) {
+    on_create_hook_();
+  }
+
   if (!enable_unified_pixel_pipeline_) {
     // Quick rejection for pixel pipeline.
     return nullptr;
@@ -62,6 +67,15 @@ PipelineContext* PipelineContextManager::GetPipelineContextByVersion(
 
   LOGE("pipeline context not found by version: " << version.ToString())
   return nullptr;
+}
+
+void PipelineContextManager::RemovePipelineContextByVersion(
+    const PipelineVersion& version) {
+  if (auto it = pipeline_contexts_.find(version);
+      it != pipeline_contexts_.end()) {
+    it->second->GetOptions()->version = nullptr;
+    pipeline_contexts_.erase(it);
+  }
 }
 }  // namespace tasm
 }  // namespace lynx

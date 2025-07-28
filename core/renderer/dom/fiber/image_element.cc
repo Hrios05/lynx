@@ -11,7 +11,12 @@ namespace lynx {
 namespace tasm {
 
 ImageElement::ImageElement(ElementManager* manager, const base::String& tag)
-    : FiberElement(manager, tag) {}
+    : FiberElement(manager, tag) {
+  if (element_manager_ == nullptr) {
+    return;
+  }
+  element_manager_->IncreaseImageElementCount();
+}
 
 void ImageElement::OnNodeAdded(FiberElement* child) {
   LOGE("image element can not insert any child!!!");
@@ -40,64 +45,11 @@ void ImageElement::SetAttributeInternal(const base::String& key,
   FiberElement::SetAttributeInternal(key, value);
 }
 
-void ImageElement::BuildAttributedStringProps(size_t start, size_t end,
-                                              PropArray* props) {
-  // inline range start
-  props->AddProp(kPropInlineStart);
-  props->AddProp(static_cast<int>(start));
-
-  // src
-  props->AddProp(kPropImageSrc);
-  props->AddProp(attr_map_[kSrc].CString());
-
-  // mode
-  // TBD
-
-  // size
-  props->AddProp(kPropRectSize);
-  float width =
-      starlight::NLengthToFakeLayoutUnit(slnode()->GetCSSStyle()->GetWidth())
-          .ClampIndefiniteToZero()
-          .ToFloat();
-  float height =
-      starlight::NLengthToFakeLayoutUnit(slnode()->GetCSSStyle()->GetHeight())
-          .ClampIndefiniteToZero()
-          .ToFloat();
-  props->AddProp(static_cast<int>(width));
-  props->AddProp(static_cast<int>(height));
-
-  // margin
-  int margin_left =
-      static_cast<int>(starlight::NLengthToFakeLayoutUnit(
-                           slnode()->GetCSSStyle()->GetMarginLeft())
-                           .ClampIndefiniteToZero()
-                           .ToFloat());
-  int margin_top =
-      static_cast<int>(starlight::NLengthToFakeLayoutUnit(
-                           slnode()->GetCSSStyle()->GetMarginRight())
-                           .ClampIndefiniteToZero()
-                           .ToFloat());
-  int margin_right =
-      static_cast<int>(starlight::NLengthToFakeLayoutUnit(
-                           slnode()->GetCSSStyle()->GetMarginTop())
-                           .ClampIndefiniteToZero()
-                           .ToFloat());
-  int margin_bottom =
-      static_cast<int>(starlight::NLengthToFakeLayoutUnit(
-                           slnode()->GetCSSStyle()->GetMarginBottom())
-                           .ClampIndefiniteToZero()
-                           .ToFloat());
-  if (margin_left | margin_top | margin_right | margin_bottom) {
-    props->AddProp(kPropMargin);
-    props->AddProp(margin_left);
-    props->AddProp(margin_top);
-    props->AddProp(margin_right);
-    props->AddProp(margin_bottom);
+void ImageElement::ResetAttribute(const base::String& key) {
+  if (EnableLayoutInElementMode()) {
+    attr_map_[key] = lepus::Value();
   }
-
-  // inline range end
-  props->AddProp(kPropInlineEnd);
-  props->AddProp(static_cast<int>(end));
+  FiberElement::ResetAttribute(key);
 }
 
 }  // namespace tasm
