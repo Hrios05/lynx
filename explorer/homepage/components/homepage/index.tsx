@@ -13,6 +13,8 @@ import ScanIconDark from '@assets/images/scan-dark.png?inline';
 import ScanIcon from '@assets/images/scan.png?inline';
 import ShowcaseIcon from '@assets/images/showcase.png?inline';
 import type { InputEvent } from '../../typing';
+import { RecentUrlsService, type RecentUrl } from './utils/RecentUrl';
+import { useEffect } from '@lynx-js/react';
 
 interface HomePageProps {
   showPage: boolean;
@@ -23,6 +25,11 @@ interface HomePageProps {
 
 export default function HomePage(props: HomePageProps) {
   const [inputValue, setInputValue] = useState('');
+  const [recentUrl, setRecentUrl] = useState<RecentUrl | null>(null);
+  useEffect(() =>  {
+    const urls = RecentUrlsService.getRecentUrls();
+    setRecentUrl(urls.length > 0 ? urls[0] : null);
+  }, []);
 
   const icons = {
     Scan: {
@@ -49,8 +56,10 @@ export default function HomePage(props: HomePageProps) {
   const openSchema = () => {
     'background only';
     NativeModules.ExplorerModule.openSchema(inputValue);
+    RecentUrlsService.addUrl('Project', inputValue);
+    const urls = RecentUrlsService.getRecentUrls();
+    setRecentUrl(urls.length > 0 ? urls[0] : null);
   };
-
   const openShowcasePage = () => {
     'background only';
     const theme =
@@ -117,6 +126,15 @@ export default function HomePage(props: HomePageProps) {
           })()}
         </view>
       </view>
+
+       {recentUrl && (
+        <view className={withTheme('recent-url')}>
+          <text className={withTheme('bold-text')}>Recent Project</text>
+          <text>{recentUrl.title}</text>
+          <text>{recentUrl.url}</text>
+          <text>{new Date(recentUrl.date).toLocaleString()}</text>
+        </view>
+      )}
 
       <view className={withTheme('input-card-url')}>
         <text className={withTheme('bold-text')}>Card URL</text>
