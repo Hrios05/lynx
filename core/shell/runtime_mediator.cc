@@ -153,6 +153,27 @@ void RuntimeMediator::AddFont(const lepus::Value& font,
       });
 }
 
+void RuntimeMediator::FetchBundle(
+    const std::string& bundle_url,
+    const std::shared_ptr<runtime::ResponsePromise<tasm::BundleResourceInfo>>&
+        response_promise) {
+  if (runtime_standalone_mode_) {
+    // TODO(nihao.royal): to support `fetchBundle` in runtime standalone mode.
+    REPORT_JSI_NATIVE_EXCEPTION(
+        "FetchBundle not supported on runtime standalone mode.");
+    response_promise->SetValue(
+        {.url = std::move(bundle_url),
+         .code = tasm::LYNX_BUNDLE_RESOURCE_INFO_REQUEST_FAILED,
+         .error_msg = "FetchBundle not supported on runtime standalone mode."});
+    return;
+  }
+  engine_actor_->ActAsync(
+      [bundle_url,
+       response_promise](const std::unique_ptr<LynxEngine>& engine) mutable {
+        engine->FetchBundle(std::move(bundle_url), std::move(response_promise));
+      });
+}
+
 void RuntimeMediator::OnRuntimeReady() {
   DCHECK(!runtime_standalone_mode_);
   facade_actor_->ActAsync([](auto& facade) { facade->OnRuntimeReady(); });
@@ -169,6 +190,11 @@ void RuntimeMediator::OnModuleMethodInvoked(const std::string& module,
   facade_actor_->ActAsync([module, method, code](auto& facade) {
     facade->OnModuleMethodInvoked(module, method, code);
   });
+}
+
+void RuntimeMediator::OnEvaluateJavaScriptEnd(const std::string& url) {
+  facade_actor_->ActAsync(
+      [url](auto& facade) { facade->OnEvaluateJavaScriptEnd(url); });
 }
 
 void RuntimeMediator::UpdateComponentData(runtime::UpdateDataTask task) {
@@ -337,6 +363,10 @@ void RuntimeMediator::TriggerWorkletFunction(std::string component_id,
 
 void RuntimeMediator::RunOnJSThread(base::closure closure) {
   return js_runner_->PostTask(std::move(closure));
+}
+
+void RuntimeMediator::InvokeResponsePromiseCallback(base::closure closure) {
+  RunOnJSThread(std::move(closure));
 }
 
 void RuntimeMediator::RunOnJSThreadWhenIdle(base::closure closure) {

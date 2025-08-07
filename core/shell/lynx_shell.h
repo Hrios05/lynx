@@ -112,16 +112,12 @@ class LynxShell {
 
   void LoadTemplate(const std::string& url, std::vector<uint8_t> source,
                     std::shared_ptr<tasm::PipelineOptions> pipeline_options,
-                    const std::shared_ptr<tasm::TemplateData>& template_data,
-                    const bool enable_pre_painting = false,
-                    bool enable_recycle_template_bundle = false);
+                    const std::shared_ptr<tasm::TemplateData>& template_data);
 
   void LoadTemplateBundle(
       const std::string& url, tasm::LynxTemplateBundle template_bundle,
       std::shared_ptr<tasm::PipelineOptions> pipeline_options,
-      const std::shared_ptr<tasm::TemplateData>& template_data,
-      const bool enable_pre_painting = false,
-      bool enable_dump_element_tree = false);
+      const std::shared_ptr<tasm::TemplateData>& template_data);
 
   void MarkDirty();
 

@@ -80,8 +80,7 @@
 
 - (nonnull instancetype)init;
 - (nonnull instancetype)initWithFrame:(CGRect)frame;
-- (nonnull instancetype)initWithBuilderBlock:
-    (void (^_Nullable)(NS_NOESCAPE LynxViewBuilder* _Nonnull))builder;
+- (nonnull instancetype)initWithBuilderBlock:(LynxViewBuilderBlock)builder;
 - (instancetype _Nullable)initWithoutRender;
 
 - (void)initLifecycleDispatcher;
@@ -292,7 +291,7 @@
  * @apidoc
  * @brief Register lifecycle event observer for `LynxView`.
  * @param lifecycleClient The structure implemented by the client and registered to the `LynxView`
- *instance is used to obtain the callbacks of each process in the `LynxView` lifecycle.
+ * instance is used to obtain the callbacks of each process in the `LynxView` lifecycle.
  */
 - (void)addLifecycleClient:(nonnull id<LynxViewBaseLifecycle>)lifecycleClient;
 

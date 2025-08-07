@@ -3,11 +3,11 @@
 # LICENSE file in the root directory of this source tree.
 
 path:
-  doxygen: ../buildtools/doxygen/doxygen
+  doxygen: buildtools/doxygen/doxygen
   instruction_doc: https://github.com/lynx-family/lynx/blob/develop/CONTRIBUTING.md#static-code-analysis-tasks
-  node: ../buildtools/node/bin/node
-  esbuild: ../buildtools/esbuild/bin/esbuild
-  llvm: ../buildtools/llvm
+  node: buildtools/node/bin/node
+  esbuild: buildtools/esbuild/bin/esbuild
+  llvm: buildtools/llvm
 android:
   metadata_path:
     - platform/android/lynx_android/src/main
@@ -21,3 +21,11 @@ ios:
   doc_path:
     - README.md
     - platform/darwin/ios/lynx/public/LynxView.h
+harmony:
+  metadata_path:
+    - platform/harmony/lynx_harmony/src/main/ets/Index.ets
+    - platform/harmony/lynx_devtool/src/main/ets/Index.ets
+    - platform/harmony/lynx_services/lynx_devtool_service/Index.ets
+    - platform/harmony/lynx_services/lynx_log_service/Index.ets
+  lynx_so_index_file: platform/harmony/lynx_harmony/src/main/ets/tasm/types/liblynx/index.d.ts
+  lynx_devtool_so_index_file: platform/harmony/lynx_devtool/src/main/ets/types/index.d.ts

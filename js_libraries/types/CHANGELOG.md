@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 3.4.3
+- Add `font-variation-settings`,`font-feature-settings` and `font-optical-sizing` CSS properties.
+
+## 3.4.2
+- And `lynx.fetchBundle` api defines.
+- And `ResponseHandler` defines.
+
+## 3.4.1
+
+- Add the following properties: `custom-context-menu`, `custom-text-selection`, `text-selection`.
+- Add the following methods: `setTextSelection`, `getTextBoundingRect`, `getSelectedText`.
+- Add `bindselectionchange` event.
+- Add `addFont` method.
+
 ## 3.4.0
 
 ### Major Changes

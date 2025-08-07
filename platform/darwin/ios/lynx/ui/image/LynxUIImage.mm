@@ -154,11 +154,13 @@ LYNX_REGISTER_SHADOW_NODE("image")
 @property(nonatomic, assign) BOOL isDirty;
 @property(nonatomic) CGSize lastFrameSize;
 @property(nonatomic, assign) BOOL enableImageEventReport;
+@property(nonatomic, assign) BOOL enableImageAsyncLayout;
 @property(nonatomic, assign) BOOL enableGenericFetcher;
 @property(nonatomic, strong) NSDictionary* additional_custom_info;
 @property(nonatomic, strong) NSString* request_priority;
 @property(nonatomic, strong) NSString* cache_choice;
 @property(nonatomic, strong) NSDictionary* placeholder_hash_config;
+@property(nonatomic) LynxBooleanOption frameCacheAutomatically;
 @end
 
 @implementation LynxUIImage {
@@ -187,6 +189,8 @@ LYNX_REGISTER_UI("image")
   _lastFrameSize = CGSizeZero;
   _isDirty = YES;
   _enableImageEventReport = [LynxEnv.sharedInstance enableImageEventReport];
+  _enableImageAsyncLayout = [LynxEnv.sharedInstance enableImageAsyncLayout];
+  _frameCacheAutomatically = LynxBooleanOptionUnset;
 }
 
 - (void)freeMemoryCache {
@@ -204,6 +208,23 @@ LYNX_REGISTER_UI("image")
     self.freed = NO;
     [self requestImage];
   }
+}
+
+- (float)memoryUsageKB {
+  float sizeKB = [super memoryUsageKB];
+  UIImage* image = self.image;
+  if (image) {
+    sizeKB += (image.size.height * image.size.width * image.scale * 4) / 1024.f;
+  }
+  return sizeKB;
+}
+
+- (NSDictionary<NSString*, NSString*>*)memoryUsageDetail {
+  NSString* url = self.src.url.path;
+  if (!url) {
+    return nil;
+  }
+  return @{url : [NSString stringWithFormat:@"%f", [self memoryUsageKB]]};
 }
 
 - (void)setContext:(LynxUIContext*)context {
@@ -264,6 +285,16 @@ LYNX_REGISTER_UI("image")
   }
 }
 
+- (void)justShadowNodeSize:(LynxShadowNode*)node {
+  // If the frameDidChange changes is just a flick, ignore it to avoid dead loop as the flick
+  // will constantly exists and keeps calling frameDidChange.
+  if (![self isLayoutFlick:self.prevSize withAnotherSize:self.frame.size]) {
+    [node setMeasureDelegate:self];
+    [node internalSetNeedsLayoutForce];
+    self.prevSize = self.frame.size;
+  }
+}
+
 - (void)onImageReady:(UIImage*)image withRequest:(LynxURL*)requestURL {
   __weak typeof(self) weakSelf = self;
   __block void (^ready)(UIImage*, LynxURL*) = ^(UIImage* image, LynxURL* requestURL) {
@@ -286,20 +317,27 @@ LYNX_REGISTER_UI("image")
     }
     if (strongSelf.autoSize &&
         UIEdgeInsetsEqualToEdgeInsets(strongSelf.capInsets, UIEdgeInsetsZero)) {
-      LynxShadowNodeOwner* owner = strongSelf.context.nodeOwner;
-      if (!owner) {
-        return;
-      }
-      LynxShadowNode* node = [owner nodeWithSign:strongSelf.sign];
-      if (!node) {
-        return;
-      }
-      // If the frameDidChange changes is just a flick, ignore it to avoid dead loop as the flick
-      // will constantly exists and keeps calling frameDidChange.
-      if (![strongSelf isLayoutFlick:strongSelf.prevSize withAnotherSize:strongSelf.frame.size]) {
-        [node setMeasureDelegate:strongSelf];
-        [node internalSetNeedsLayoutForce];
-        strongSelf.prevSize = strongSelf.frame.size;
+      if (strongSelf.enableImageAsyncLayout) {
+        __weak typeof(strongSelf) layoutWeakSelf = strongSelf;
+        [self.context findShadowNodeAndRunTask:strongSelf.sign
+                                          task:^(LynxShadowNode* node) {
+                                            typeof(layoutWeakSelf) layoutStrongSelf =
+                                                layoutWeakSelf;
+                                            if (!layoutStrongSelf) {
+                                              return;
+                                            }
+                                            [layoutStrongSelf justShadowNodeSize:node];
+                                          }];
+      } else {
+        LynxShadowNodeOwner* owner = strongSelf.context.nodeOwner;
+        if (!owner) {
+          return;
+        }
+        LynxShadowNode* node = [owner nodeWithSign:strongSelf.sign];
+        if (!node) {
+          return;
+        }
+        [strongSelf justShadowNodeSize:node];
       }
     }
 
@@ -618,6 +656,11 @@ UIEdgeInsets LynxRoundInsetsToPixel(UIEdgeInsets edgeInsets) {
       BOOL isAnimatedImage = [LynxUIImage isAnimatedImage:strongSelf.image];
       if (isAnimatedImage) {
         [[LynxImageLoader imageService] setAutoPlay:strongSelf.view value:strongSelf.autoPlay];
+        if (self.frameCacheAutomatically != LynxBooleanOptionUnset) {
+          BOOL frameCache = self.frameCacheAutomatically == LynxBooleanOptionTrue ? YES : NO;
+          [[LynxImageLoader imageService] setFrameCacheAutomatically:strongSelf.view
+                                                               value:frameCache];
+        }
         [strongSelf onImageReady:image withRequest:requestUrl];
         if ([NSThread isMainThread]) {
           [strongSelf superUpdateLayerMaskOnFrameChanged];
@@ -1055,6 +1098,19 @@ LYNX_PROP_SETTER("cover-start", setCoverStart, BOOL) {
   if (_coverStart != value) {
     _coverStart = value;
   }
+}
+
+/**
+ * @name: ios-frame-cache-automatically
+ * @description: Image animation property. If set to NO, images will not be cached. Each image will
+ * be discarded by default after use, which is suitable for scenarios where the animation needs to
+ *play only once.
+ **/
+LYNX_PROP_SETTER("ios-frame-cache-automatically", setFrameCacheAutomatically, BOOL) {
+  if (requestReset) {
+    value = YES;
+  }
+  _frameCacheAutomatically = value == YES ? LynxBooleanOptionTrue : LynxBooleanOptionFalse;
 }
 
 LYNX_PROP_SETTER("blur-radius", setBlurRadius, NSString*) {

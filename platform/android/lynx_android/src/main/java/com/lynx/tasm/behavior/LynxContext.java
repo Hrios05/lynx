@@ -44,6 +44,7 @@ import com.lynx.tasm.fluency.FluencyTraceHelper;
 import com.lynx.tasm.fontface.FontFace;
 import com.lynx.tasm.image.model.LynxImageFetcher;
 import com.lynx.tasm.loader.LynxFontFaceLoader;
+import com.lynx.tasm.performance.PerformanceController;
 import com.lynx.tasm.provider.LynxProviderRegistry;
 import com.lynx.tasm.provider.LynxResourceFetcher;
 import com.lynx.tasm.provider.LynxResourceServiceProvider;
@@ -72,6 +73,7 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
   private TouchEventDispatcher mTouchEventDispatcher = null;
   private IListNodeInfoFetcher mListNodeInfoFetcher;
   private WeakReference<JSProxy> mJSProxy;
+  private WeakReference<PerformanceController> mPerfController = null;
 
   private WeakReference<LynxLayoutProxy> mLayoutProxy;
   private UIBody mUIBody;
@@ -103,7 +105,7 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
 
   private LynxBooleanOption mLongTaskMonitorEnabled = LynxBooleanOption.UNSET;
 
-  private HashMap<String, Object> mContextData;
+  private Map<String, Object> mContextData;
 
   private boolean mInPreLoad;
 
@@ -154,6 +156,8 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
 
   private int embeddedMode = EmbeddedMode.UNSET;
 
+  private boolean isFallbackProcess = false;
+
   public LynxContext(Context base, DisplayMetrics screenMetrics) {
     super(base);
     mVirtualScreenMetrics = new DisplayMetrics();
@@ -198,8 +202,23 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
     return (embeddedMode & EmbeddedMode.EMBEDDED_MODE_BASE) > 0;
   }
 
+  public boolean isFallbackProcess() {
+    return isFallbackProcess;
+  }
+
+  public void markFallbackProcess(boolean enable) {
+    isFallbackProcess = enable;
+  }
+
   public boolean isLayoutInElementModeOn() {
     return (embeddedMode & EmbeddedMode.LAYOUT_IN_ELEMENT) > 0;
+  }
+
+  /**
+   * @brief check whether enables use the native `Fragment` based UI renderer
+   */
+  public boolean isFragmentLayerRenderOn() {
+    return (embeddedMode & EmbeddedMode.FRAGMENT_LAYER_RENDER) > 0;
   }
 
   /**
@@ -231,6 +250,19 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
 
   public void setLongTaskMonitorEnabled(LynxBooleanOption enabled) {
     mLongTaskMonitorEnabled = enabled;
+  }
+
+  public void setPerfController(PerformanceController perfController) {
+    if (perfController != null) {
+      mPerfController = new WeakReference<>(perfController);
+    }
+  }
+
+  public PerformanceController getPerfController() {
+    if (mPerfController == null) {
+      return null;
+    }
+    return mPerfController.get();
   }
 
   public void onPageConfigDecoded(PageConfig config) {
@@ -496,7 +528,8 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
     return bodyView instanceof LynxView ? (LynxView) bodyView : null;
   }
 
-  private UIBodyView getUIBodyView() {
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public UIBodyView getUIBodyView() {
     return mBodyView != null ? mBodyView.get() : null;
   }
 
@@ -1255,11 +1288,11 @@ public abstract class LynxContext extends LynxBaseContext implements ExceptionHa
     return null;
   }
 
-  public void setContextData(HashMap<String, Object> contextData) {
+  public void setContextData(Map<String, Object> contextData) {
     this.mContextData = contextData;
   }
 
-  public HashMap getContextData() {
+  public Map getContextData() {
     return mContextData;
   }
 

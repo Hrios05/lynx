@@ -131,11 +131,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)enableImageEventReport;
 
+- (BOOL)enableImageAsyncLayout;
+
 - (BOOL)enableGenericResourceFetcher;
 
 - (BOOL)enableTextContainerOpt;
 
 - (BOOL)enableTextStorageDeallocFix;
+
+- (int)memoryAcquisitionDelaySec;
+
+- (int)memoryReportIntervalSec;
 
 - (NSDictionary<NSString *, NSString *> *)cppEnvDebugDescription;
 

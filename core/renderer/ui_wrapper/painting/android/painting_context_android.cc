@@ -21,6 +21,7 @@
 #include "core/renderer/tasm/react/android/mapbuffer/readable_compact_array_buffer.h"
 #include "core/renderer/ui_wrapper/common/android/platform_extra_bundle_android.h"
 #include "core/renderer/ui_wrapper/common/android/prop_bundle_android.h"
+#include "core/renderer/ui_wrapper/layout/android/text_layout_android.h"
 #include "core/renderer/ui_wrapper/layout/layout_node.h"
 #include "core/renderer/utils/android/text_utils_android.h"
 #include "core/renderer/utils/android/value_converter_android.h"
@@ -55,10 +56,12 @@ void InvokeCallback(JNIEnv* env, jobject jcaller, jlong context, jint callback,
 }
 
 jlong CreatePaintingContext(JNIEnv* env, jobject jcaller,
-                            jobject painting_context, jint thread_strategy,
+                            jobject painting_context, jobject text_layout,
+                            jint thread_strategy,
                             jboolean enable_context_free) {
   return reinterpret_cast<jlong>(new lynx::tasm::PaintingContextAndroid(
-      env, painting_context, thread_strategy, enable_context_free));
+      env, painting_context, text_layout, thread_strategy,
+      enable_context_free));
 }
 
 namespace lynx {
@@ -303,6 +306,23 @@ void PaintingContextAndroidRef::UpdateContentOffsetForListContainer(
       target_content_offset_y);
 }
 
+void PaintingContextAndroidRef::SetNeedMarkPaintEndTiming(
+    const tasm::PipelineID& pipeline_id) {
+  base::android::ScopedLocalJavaRef<jobject> local_ref(java_ref_);
+  if (local_ref.IsNull()) {
+    return;
+  }
+
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedLocalJavaRef<jstring> pipeline_id_ref =
+      base::android::JNIConvertHelper::ConvertToJNIStringUTF(env, pipeline_id);
+  Java_PaintingContext_setNeedMarkPaintEndTiming(env, local_ref.Get(),
+                                                 pipeline_id_ref.Get());
+}
+
+void PaintingContextAndroidRef::MarkUIOperationQueueFlushForRecreateEngine(
+    bool enable) {}
+
 void PaintingContextAndroid::SetKeyframes(
     fml::RefPtr<PropBundle> keyframes_data) {
   PropBundleAndroid* pda =
@@ -347,6 +367,7 @@ void PaintingContextAndroid::ConsumeGesture(int64_t idx, int32_t gesture_id,
 }
 
 PaintingContextAndroid::PaintingContextAndroid(JNIEnv* env, jobject impl,
+                                               jobject text_layout,
                                                jint thread_strategy,
                                                bool enable_context_free)
     : impl_(std::make_shared<base::android::ScopedWeakGlobalJavaRef<jobject>>(
@@ -354,6 +375,10 @@ PaintingContextAndroid::PaintingContextAndroid(JNIEnv* env, jobject impl,
       thread_strategy_(thread_strategy),
       enable_context_free_(enable_context_free) {
   platform_ref_ = std::make_shared<PaintingContextAndroidRef>(env, impl);
+  // layout in element
+  if (text_layout != nullptr) {
+    text_layout_impl_ = std::make_unique<TextLayoutAndroid>(env, text_layout);
+  }
 }
 
 void PaintingContextAndroid::SetUIOperationQueue(
@@ -1202,45 +1227,6 @@ void PaintingContextAndroid::EnableUIOperationBatching() {
 std::unique_ptr<pub::Value> PaintingContextAndroid::GetTextInfo(
     const std::string& content, const pub::Value& info) {
   return TextUtilsAndroidHelper::GetTextInfo(content, info);
-}
-
-LayoutResult PaintingContextAndroid::MeasureText(int sign, PropArray* array,
-                                                 int width, int width_mode,
-                                                 int height, int height_mode) {
-  base::android::ScopedLocalJavaRef<jobject> local_ref(*impl_);
-  if (local_ref.IsNull()) {
-    return lynx::tasm::LayoutResult{0, 0, 0};
-  }
-  JNIEnv* env = base::android::AttachCurrentThread();
-
-  PropArrayAndroid* pa = static_cast<PropArrayAndroid*>(array);
-  std::optional<base::android::CompactArrayBuffer> text_ab = std::nullopt;
-
-  if (pa->GetArrayBuffer()) {
-    text_ab = pa->GetArrayBuffer();
-  }
-  auto j_text_props = text_ab ? base::android::JReadableCompactArrayBuffer::
-                                    CreateReadableCompactArrayBuffer(*text_ab)
-                              : std::nullopt;
-
-  if (!j_text_props.has_value()) {
-    return lynx::tasm::LayoutResult{0, 0, 0};
-  }
-
-  const lynx::base::android::ScopedLocalJavaRef<jfloatArray> result_array =
-      Java_PaintingContext_measureText(env, local_ref.Get(), sign,
-                                       j_text_props->Get(), width, width_mode,
-                                       height, height_mode);
-  if (!result_array.Get()) {
-    return lynx::tasm::LayoutResult{0, 0, 0};
-  }
-  jfloat* result = env->GetFloatArrayElements(result_array.Get(), JNI_FALSE);
-  float measured_width = result[0];
-  float measured_height = result[1];
-  float base_line = result[2];
-
-  env->ReleaseFloatArrayElements(result_array.Get(), result, JNI_ABORT);
-  return LayoutResult{measured_width, measured_height, base_line};
 }
 
 }  // namespace tasm

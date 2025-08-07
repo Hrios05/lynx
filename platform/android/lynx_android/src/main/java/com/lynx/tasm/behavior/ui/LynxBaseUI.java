@@ -216,7 +216,6 @@ public abstract class LynxBaseUI
   @Nullable protected TransformOrigin mTransformOrigin;
   @Nullable protected ReadableArray mPerspective = null;
   protected float mPrePerspectiveValue = 0;
-  protected boolean mResetPerspectiveFlag = false;
   protected boolean hasTransformChanged = false;
   protected boolean userInteractionEnabled = true;
   protected boolean nativeInteractionEnabled = false;
@@ -429,6 +428,32 @@ public abstract class LynxBaseUI
 
   public void applyUIPaintStylesToTarget(LynxBaseUI targetUI) {
     updateUIPaintStyle(targetUI, mUIPaintStyles);
+  }
+
+  /**
+   * Returns the current memory usage in bytes.
+   * The value represents a non-negative memory consumption measurement.
+   * Implementations should return the total memory used by the component
+   * or resource being monitored. For example:
+   *  - An image processor might return decoded pixel data size.
+   *
+   * @return memory usage in bytes, or {@code 0} if not implemented/unavailable
+   */
+  public long getMemoryUsageBytes() {
+    return 0;
+  }
+
+  /**
+   * Provides detailed memory usage information in a customizable key-value format.
+   * The returned map can contain arbitrary memory-related entries. For example,
+   * an image processing implementation might return a mapping of image URLs to
+   * their memory sizes (e.g., {@code {"https://example.com/img1.jpg": "2.5"}}).
+   *
+   * Implementations are free to define relevant entries or return null
+   * if no memory details are available.
+   */
+  public Map<String, String> getMemoryUsageDetail() {
+    return null;
   }
 
   public boolean getVisibility() {
@@ -2238,11 +2263,6 @@ public abstract class LynxBaseUI
 
   @LynxProp(name = PropsConstants.PERSPECTIVE)
   public void setPerspective(@Nullable ReadableArray perspective) {
-    if (perspective == null || perspective.size() != 2) {
-      mResetPerspectiveFlag = true;
-    } else {
-      mResetPerspectiveFlag = false;
-    }
     mPerspective = perspective;
   }
 

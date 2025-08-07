@@ -4,6 +4,8 @@
 
 #include "core/renderer/ui_wrapper/painting/painting_context.h"
 
+#include "core/services/trace/service_trace_event_def.h"
+
 namespace lynx {
 namespace tasm {
 
@@ -195,10 +197,17 @@ void PaintingContext::MarkUIOperationQueueFlushTiming(
   }
   Enqueue([perf_actor = perf_controller_actor_, key = std::move(key),
            pipeline_id]() {
-    TRACE_EVENT(LYNX_TRACE_CATEGORY, UI_OPERATION_QUEUE_MARK_TIMING);
+    auto timestamp = base::CurrentSystemTimeMicroseconds();
+    TRACE_EVENT_INSTANT(
+        LYNX_TRACE_CATEGORY, TIMING_MARK + key,
+        [&pipeline_id, &key, timestamp](lynx::perfetto::EventContext ctx) {
+          ctx.event()->add_debug_annotations("timing_key", key);
+          ctx.event()->add_debug_annotations("pipeline_id", pipeline_id);
+          ctx.event()->add_debug_annotations("timestamp",
+                                             std::to_string(timestamp));
+        });
     perf_actor->ActAsync([key = std::move(key), pipeline_id,
-                          timestamp = base::CurrentSystemTimeMicroseconds()](
-                             auto& controller) mutable {
+                          timestamp](auto& controller) mutable {
       controller->GetTimingHandler().SetTiming(
           key, static_cast<lynx::tasm::timing::TimestampUs>(timestamp),
           pipeline_id);
@@ -206,19 +215,39 @@ void PaintingContext::MarkUIOperationQueueFlushTiming(
   });
 }
 
+void PaintingContext::MarkUIOperationQueueFlushForRecreateEngine(
+    bool flush_for_recreate_engine) {
+  if (flush_for_recreate_engine) {
+    EnqueueHighPriorityUIOperation(
+        [flush_for_recreate_engine,
+         platform_ref = platform_impl_->GetPlatformRef()]() {
+          TRACE_EVENT(
+              LYNX_TRACE_CATEGORY,
+              "PaintingContext::MarkUIOperationQueueFlushForRecreateEngine");
+          platform_ref->MarkUIOperationQueueFlushForRecreateEngine(
+              flush_for_recreate_engine);
+        });
+  } else {
+    Enqueue([flush_for_recreate_engine,
+             platform_ref = platform_impl_->GetPlatformRef()]() {
+      TRACE_EVENT(
+          LYNX_TRACE_CATEGORY,
+          "PaintingContext::MarkUIOperationQueueFlushForRecreateEngine");
+      platform_ref->MarkUIOperationQueueFlushForRecreateEngine(
+          flush_for_recreate_engine);
+    });
+  }
+}
+
 void PaintingContext::SetNeedMarkPaintEndTiming(
     const tasm::PipelineID& pipeline_id) {
   if (pipeline_id.empty()) {
     return;
   }
-  Enqueue([perf_actor = perf_controller_actor_,
-           platform_ref = platform_impl_->GetPlatformRef(), pipeline_id]() {
-    if (perf_actor) {
-      perf_actor->ActAsync([pipeline_id](auto& controller) {
-        controller->GetTimingHandler().SetNeedMarkPaintEndTiming(pipeline_id);
-      });
-    }
-
+  Enqueue([platform_ref = platform_impl_->GetPlatformRef(), pipeline_id]() {
+    TRACE_EVENT(LYNX_TRACE_CATEGORY,
+                UI_OPERATION_QUEUE_SET_NEED_MARK_PAINT_END_TIMING,
+                "pipeline_id", pipeline_id);
     platform_ref->SetNeedMarkPaintEndTiming(pipeline_id);
   });
 }

@@ -50,7 +50,6 @@
 #endif
 
 constexpr const static char *kEventDomSizeKey = "dom_size";
-
 namespace lynx {
 namespace tasm {
 #pragma mark ElementManager
@@ -143,11 +142,89 @@ void AirNodeManager::RecordForLepusId(int id, uint64_t key,
 
 #endif
 
+class ElementManager::LayoutNodeManagerForEM : public LayoutNodeManager {
+ public:
+  explicit LayoutNodeManagerForEM(const ElementManager &element_manager)
+      : element_manager_(element_manager) {}
+  ~LayoutNodeManagerForEM() override = default;
+
+  void SetMeasureFunc(int32_t id,
+                      std::unique_ptr<MeasureFunc> measure_func) override {
+    // TODO: implement this after adding customized layout wrapper
+  }
+
+  void MarkDirtyAndRequestLayout(int32_t id) override {
+    auto *element = GetFiberElement(id);
+    if (element) {
+      element->MarkLayoutDirty();
+    }
+  }
+
+  void MarkDirtyAndForceLayout(int32_t id) override {
+    auto *element = GetFiberElement(id);
+    if (element) {
+      element->MarkLayoutDirty();
+    }
+  }
+
+  bool IsDirty(int32_t id) override { return false; }
+
+  FlexDirection GetFlexDirection(int32_t id) override {
+    return FlexDirection::kRow;
+  }
+
+  float GetWidth(int32_t id) override { return 0; }
+
+  float GetHeight(int32_t id) override { return 0; }
+
+  float GetMinWidth(int32_t id) override { return 0; }
+
+  float GetMaxWidth(int32_t id) override { return 0; }
+
+  float GetMinHeight(int32_t id) override { return 0; }
+
+  float GetMaxHeight(int32_t id) override { return 0; }
+
+  float GetPaddingLeft(int32_t id) override { return 0; }
+
+  float GetPaddingTop(int32_t id) override { return 0; }
+
+  float GetPaddingRight(int32_t id) override { return 0; }
+
+  float GetPaddingBottom(int32_t id) override { return 0; }
+
+  float GetMarginLeft(int32_t id) override { return 0; }
+
+  float GetMarginTop(int32_t id) override { return 0; }
+
+  float GetMarginRight(int32_t id) override { return 0; }
+
+  float GetMarginBottom(int32_t id) override { return 0; }
+
+  LayoutResult UpdateMeasureByPlatform(int32_t id, float width,
+                                       int32_t width_mode, float height,
+                                       int32_t height_mode,
+                                       bool final_measure) override {
+    return LayoutResult();
+  }
+
+  void AlignmentByPlatform(int32_t id, float offset_top,
+                           float offset_left) override {}
+
+ private:
+  FiberElement *GetFiberElement(int32_t id) const {
+    return reinterpret_cast<FiberElement *>(
+        element_manager_.node_manager_->Get(id));
+  }
+  const ElementManager &element_manager_;
+};
+
 ElementManager::ElementManager(
     std::unique_ptr<PaintingCtxPlatformImpl> platform_painting_context,
     Delegate *delegate, const LynxEnvConfig &lynx_env_config,
     int32_t instance_id,
-    const std::shared_ptr<base::VSyncMonitor> &vsync_monitor)
+    const std::shared_ptr<base::VSyncMonitor> &vsync_monitor,
+    std::unique_ptr<lynx::tasm::LayoutCtxPlatformImpl> platform_layout_context)
     : ElementContextDelegate(nullptr, nullptr),
       node_manager_(new NodeManager),
       air_node_manager_(new AirNodeManager),
@@ -162,6 +239,7 @@ ElementManager::ElementManager(
       lynx_env_config_(lynx_env_config),
       delegate_(delegate),
       vsync_monitor_(vsync_monitor),
+      platform_layout_context_(std::move(platform_layout_context)),
       platform_computed_css_(std::make_unique<starlight::ComputedCSSStyle>(
           lynx_env_config.LayoutsUnitPerPx(),
           lynx_env_config.PhysicalPixelsPerLayoutUnit())) {
@@ -186,32 +264,76 @@ ElementManager::ElementManager(
       LynxEnv::Key::FIX_NEGATIVE_Z_INDEX_INSERT_BUG, true);
   enable_fiber_element_memory_reporter_ =
       LynxEnv::GetInstance().EnableFiberElementMemoryReport();
+  if (platform_layout_context_) {
+    layout_node_manager_ = std::make_unique<LayoutNodeManagerForEM>(*this);
+    platform_layout_context_->SetLayoutNodeManager(layout_node_manager_.get());
+  }
 }
 
-static bool EnableLayoutOnlyStatistic() {
+static bool EnableElementStatistic() {
   // cache the setting.
   static bool enable = tasm::LynxEnv::GetInstance().GetBoolEnv(
-      tasm::LynxEnv::Key::ENABLE_LAYOUT_ONLY_STATISTIC, false);
+      tasm::LynxEnv::Key::ENABLE_ELEMENT_STATISTIC, true);
   return enable;
 }
 
 ElementManager::~ElementManager() {
-  if (EnableLayoutOnlyStatistic() && EnableEventReporter()) {
-    report::EventTracker::OnEvent([element_count = element_count_.load(),
-                                   layout_only_element_count =
-                                       layout_only_element_count_.load(),
-                                   layout_only_transition_count =
-                                       layout_only_transition_count_.load()](
-                                      report::MoveOnlyEvent &event) {
-      event.SetName("lynxsdk_layout_only_element_statistic");
-      event.SetProps("element_count", static_cast<unsigned int>(element_count));
-      event.SetProps("layout_only_element_count",
-                     static_cast<unsigned int>(layout_only_element_count));
-      event.SetProps("layout_only_transition_count",
-                     static_cast<unsigned int>(layout_only_transition_count));
-    });
-  }
+  ReportElementStatistic();
   WillDestroy();
+}
+
+void ElementManager::ReportElementStatistic() {
+  if (EnableElementStatistic() && EnableEventReporter()) {
+    report::EventTracker::OnEvent(
+        [element_count = element_count_.load(),
+         layout_only_element_count = layout_only_element_count_.load(),
+         layout_only_transition_count = layout_only_transition_count_.load(),
+         wrapper_element_count = wrapper_element_count_.load(),
+         component_element_count = component_element_count_.load(),
+         image_element_count = image_element_count_.load(),
+         text_element_count = text_element_count_.load(),
+         view_element_count =
+             view_element_count_.load()](report::MoveOnlyEvent &event) {
+          event.SetName("lynxsdk_element_statistic");
+          event.SetProps("element_count",
+                         static_cast<unsigned int>(element_count));
+          event.SetProps("layout_only_element_count",
+                         static_cast<unsigned int>(layout_only_element_count));
+          event.SetProps(
+              "layout_only_transition_count",
+              static_cast<unsigned int>(layout_only_transition_count));
+          event.SetProps("wrapper_element_count",
+                         static_cast<unsigned int>(wrapper_element_count));
+          event.SetProps("component_element_count",
+                         static_cast<unsigned int>(component_element_count));
+          event.SetProps("image_element_count",
+                         static_cast<unsigned int>(image_element_count));
+          event.SetProps("text_element_count",
+                         static_cast<unsigned int>(text_element_count));
+          event.SetProps("view_element_count",
+                         static_cast<unsigned int>(view_element_count));
+          if (element_count > 0) {
+            event.SetProps(
+                "wrapper_element_ratio",
+                static_cast<float>(wrapper_element_count) / element_count);
+            event.SetProps(
+                "layout_only_element_ratio",
+                static_cast<float>(layout_only_element_count) / element_count);
+            event.SetProps(
+                "component_element_ratio",
+                static_cast<float>(component_element_count) / element_count);
+            event.SetProps(
+                "image_element_ratio",
+                static_cast<float>(image_element_count) / element_count);
+            event.SetProps(
+                "text_element_ratio",
+                static_cast<float>(text_element_count) / element_count);
+            event.SetProps(
+                "view_element_ratio",
+                static_cast<float>(view_element_count) / element_count);
+          }
+        });
+  }
 }
 
 void ElementManager::WillDestroy() {
@@ -424,22 +546,27 @@ void ElementManager::CheckAndProcessSlotForInspector(Element *element) {
   });
 }
 
-void ElementManager::RequestLayout(
+PipelineLayoutData ElementManager::RequestLayout(
     const std::shared_ptr<PipelineOptions> &options) {
   TRACE_EVENT(LYNX_TRACE_CATEGORY, ELEMENT_MANAGER_REQUEST_LAYOUT);
+
+  if (options->render_for_recreate_engine) {
+    painting_context()->MarkUIOperationQueueFlushForRecreateEngine(false);
+  }
+
+  if (options->need_timestamps) {
+    painting_context()->MarkUIOperationQueueFlushTiming(
+        tasm::timing::kPaintingUiOperationExecuteEnd, options->pipeline_id);
+  }
+
   if (!IsLayoutInElementModeOn()) {
     DispatchLayoutUpdates(options);
-    return;
+    return PipelineLayoutData();
   }
 
   // TODO(songshourui.null): we can optimize the performance here within
   // checking layout dirty.
   if (has_viewport_ready_ && root()->is_page()) {
-    if (options->need_timestamps) {
-      painting_context()->MarkUIOperationQueueFlushTiming(
-          tasm::timing::kPaintingUiOperationExecuteEnd, options->pipeline_id);
-    }
-
     if (options->need_timestamps) {
       tasm::TimingCollector::Instance()->Mark(tasm::timing::kLayoutStart);
     }
@@ -450,23 +577,28 @@ void ElementManager::RequestLayout(
       tasm::TimingCollector::Instance()->Mark(tasm::timing::kLayoutEnd);
     }
 
-    painting_context()->FinishLayoutOperation(options);
+    return {.layout_triggered = true, .pipeline_version = options->version};
   }
+  return {.layout_triggered = false, .pipeline_version = options->version};
 }
 
 void ElementManager::DispatchLayoutUpdates(
     const std::shared_ptr<PipelineOptions> &options) {
-  // insert PAINTING_UI_OPERATION_FLUSH_END to UI Operation Queue before layout.
-  if (options->need_timestamps) {
-    painting_context()->MarkUIOperationQueueFlushTiming(
-        tasm::timing::kPaintingUiOperationExecuteEnd, options->pipeline_id);
-  }
   delegate_->DispatchLayoutUpdates(options);
 }
 
 std::unordered_map<int32_t, LayoutInfoArray>
 ElementManager::GetSubTreeLayoutInfo(int32_t root_id, Viewport viewport) {
   return delegate_->GetSubTreeLayoutInfo(root_id, viewport);
+}
+
+void ElementManager::RequestResolve(
+    std::shared_ptr<PipelineOptions> &pipeline_options) {
+  if (pipeline_options->enable_unified_pixel_pipeline) {
+    pipeline_options->resolve_requested = true;
+  } else {
+    OnPatchFinish(pipeline_options);
+  }
 }
 
 void ElementManager::DidPatchFinishForFiber() {
@@ -756,7 +888,9 @@ void ElementManager::OnUpdateViewport(float width, int width_mode, float height,
   viewport_.UpdateViewport(width, width_mode, height, height_mode);
   has_viewport_ready_ = true;
 
-  SetViewportSizeToRootNode();
+  if (SetViewportSizeToRootNode()) {
+    RequestLayout(std::make_shared<PipelineOptions>());
+  }
 }
 
 /**
@@ -932,11 +1066,19 @@ bool ElementManager::IsShadowNodeVirtual(const base::String &tag_name) {
   return GetNodeInfoByTag(tag_name) & LayoutNodeType::VIRTUAL;
 }
 
-LayoutResult ElementManager::MeasureText(int id, PropArray *prop_array,
-                                         int width, int width_mode, int height,
+LayoutResult ElementManager::MeasureText(Element *element, float width,
+                                         int width_mode, float height,
                                          int height_mode) {
-  return painting_context()->MeasureText(id, prop_array, width, width_mode,
-                                         height, height_mode);
+  return painting_context()->MeasureText(element, width, width_mode, height,
+                                         height_mode);
+}
+
+void ElementManager::DispatchLayoutBefore(Element *element) {
+  painting_context()->DispatchLayoutBefore(element);
+}
+
+void ElementManager::AlignText(Element *element) {
+  painting_context()->AlignText(element);
 }
 
 void ElementManager::MarkLayoutDirty(int32_t id) {
@@ -1304,8 +1446,8 @@ void ElementManager::OnPatchFinish(std::shared_ptr<PipelineOptions> &option,
   if (!option->enable_unified_pixel_pipeline && delegate_ &&
       tasm::performance::MemoryMonitor::Enable()) {
     int32_t count = static_cast<int32_t>(node_manager()->NodeCount());
-    float mem_size_byte = node_manager()->GetTotalMemoryUsage();
-    delegate_->ReportElementMemoryInfo(mem_size_byte, count);
+    int64_t mem_size_bytes = node_manager()->GetTotalMemoryUsage();
+    delegate_->ReportElementMemoryInfo(mem_size_bytes, count);
   }
 }
 
@@ -1356,6 +1498,11 @@ void ElementManager::OnPatchFinishForFiber(
       tasm::TimingCollector::Instance()->Mark(tasm::timing::kResolveStart);
     }
   }
+
+  if (options->render_for_recreate_engine) {
+    painting_context()->MarkUIOperationQueueFlushForRecreateEngine(true);
+  }
+
   if (options->enable_report_list_item_life_statistic_ &&
       options->IsRenderListItem()) {
     options->list_item_life_option_.start_dispatch_time_ =
@@ -1397,7 +1544,8 @@ void ElementManager::OnPatchFinishForFiber(
 
   // if flush_option do not need layout or options do not need layout, skip
   // layout.
-  if (!need_layout_ || !options->trigger_layout_) {
+  if ((!need_layout_ || !options->trigger_layout_) &&
+      !options->render_for_recreate_engine) {
     TRACE_EVENT(LYNX_TRACE_CATEGORY,
                 ELEMENT_MANAGER_ON_PATCH_FINISH_FIBER_NO_PATCH);
     LOGI("ElementManager::OnPatchFinishForFiber NoPatch!");

@@ -49,7 +49,7 @@ class MockTasmDelegate : public TemplateAssembler::Delegate,
 
   tasm::LynxTemplateBundle GetTemplateBundle() { return std::move(bundle_); }
 
-  void ReportElementMemoryInfo(float mem_size_byte,
+  void ReportElementMemoryInfo(int64_t mem_size_bytes,
                                int element_count) override{};
   void OnRuntimeGC(
       std::unordered_map<std::string, std::string> mem_info) override{};
@@ -233,6 +233,8 @@ class MockTasmDelegate : public TemplateAssembler::Delegate,
       std::vector<int32_t> ui_impl_ids, const std::string& method,
       const lepus::Value& params, lepus::Context* context,
       std::unique_ptr<lepus::Value> callback_closure) override{};
+
+  void InvokeResponsePromiseCallback(base::closure closure) override{};
 
   void RequestLayout(
       const std::shared_ptr<tasm::PipelineOptions>& options) override{};

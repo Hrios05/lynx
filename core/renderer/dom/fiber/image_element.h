@@ -26,8 +26,14 @@ class ImageElement : public FiberElement {
 
   void ConvertToInlineElement() override;
 
-  void BuildAttributedStringProps(size_t start, size_t end,
-                                  PropArray* props) override;
+  const char* src() {
+    auto it = attr_map_.find(BASE_STATIC_STRING(kSrc));
+    return it == attr_map_.end() ? "" : it->second.CString();
+  }
+
+  void ResetAttribute(const base::String& key) override;
+
+  int32_t GetBuiltInNodeInfo() const override { return kCommonBuiltInNodeInfo; }
 
  protected:
   ImageElement(const ImageElement& element, bool clone_resolved_props)

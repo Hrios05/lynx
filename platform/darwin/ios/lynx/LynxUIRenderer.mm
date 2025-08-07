@@ -189,15 +189,18 @@
                     screenSize:(CGSize)screenSize {
   LynxScreenMetrics *screenMetrics =
       [[LynxScreenMetrics alloc] initWithScreenSize:screenSize scale:[UIScreen mainScreen].scale];
-  _uiOwner = [[LynxUIOwner alloc] initWithContainerView:containerView
-                                      componentRegistry:builder.config.componentRegistry
-                                          screenMetrics:screenMetrics
-                                           errorHandler:containerView
-                                               uiConfig:nil
-                                           embeddedMode:[builder getEmbeddedMode]];
-
-  _uiOwner.uiContext.contextDict = [builder.config.contextDict copy];
-  _uiOwner.uiContext.lynxModuleExtraData = builder.lynxModuleExtraData;
+  if (_uiOwner) {
+    [_uiOwner attachContainerView:containerView];
+  } else {
+    _uiOwner = [[LynxUIOwner alloc] initWithContainerView:containerView
+                                        componentRegistry:builder.config.componentRegistry
+                                            screenMetrics:screenMetrics
+                                             errorHandler:containerView
+                                                 uiConfig:nil
+                                             embeddedMode:[builder getEmbeddedMode]];
+    _uiOwner.uiContext.contextDict = [builder.config.contextDict copy];
+    _uiOwner.uiContext.lynxModuleExtraData = builder.lynxModuleExtraData;
+  }
 }
 
 - (void)setLynxContext:(LynxContext *)context {
@@ -226,6 +229,13 @@
 - (id<LynxGenericResourceFetcher>)genericResourceFetcher {
   if (_enableGenericResourceLoader) {
     return _uiOwner.uiContext.genericResourceFetcher;
+  }
+  return nil;
+}
+
+- (id<LynxMediaResourceFetcher>)mediaResourceFetcher {
+  if (_enableGenericResourceLoader) {
+    return _uiOwner.uiContext.mediaResourceFetcher;
   }
   return nil;
 }

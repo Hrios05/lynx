@@ -30,6 +30,8 @@
 #import "LynxCallStackUtil.h"
 #import "LynxConfig+Internal.h"
 #import "LynxContext+Internal.h"
+#import "LynxEngine.h"
+#import "LynxEnginePool.h"
 #import "LynxEngineProxy+Native.h"
 #import "LynxEnv+Internal.h"
 #import "LynxEventReporterUtils.h"
@@ -91,15 +93,14 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   return enable == LynxBooleanOptionTrue;
 }
 
-- (instancetype)initWithBuilderBlock:(void (^_Nullable)(NS_NOESCAPE LynxViewBuilder* _Nonnull))block
+- (instancetype)initWithBuilderBlock:(LynxViewBuilderBlock)block
                             lynxView:(LynxView* _Nullable)lynxView {
   if (self = [self initWithBuilderBlock:block containerView:lynxView]) {
   }
   return self;
 }
 
-- (instancetype)initWithBuilderBlock:(void (^)(__attribute__((noescape))
-                                               LynxViewBuilder* _Nonnull))block
+- (instancetype)initWithBuilderBlock:(LynxViewBuilderBlock)block
                        containerView:(UIView<LUIBodyView>*)containerView {
   TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_RENDER_INIT_WITH_BUILDER_BLOCK);
   if (self = [super init]) {
@@ -176,6 +177,21 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   return builder;
 }
 
+- (void)reuseLynxEngine {
+  _lynxEngine = [[LynxEnginePool sharedInstance] pollEngineWithRender:_templateBundle];
+  if (!_lynxEngine) {
+    _lynxEngine = [[LynxEngine alloc] initWithTemplateRender:self];
+    _isEngineInitFromReusePool = NO;
+  } else {
+    [_lynxEngine setEngineState:LynxEngineStateOnReusing];
+    _lynxUIRenderer = [_lynxEngine lynxUIRenderer];
+    _shadowNodeOwner = [_lynxEngine shadowNodeOwner];
+    // TODO(renzhongyue) : attachBodyView
+    _isEngineInitFromReusePool = YES;
+  }
+  [_lynxEngine attachTemplateRender:self];
+}
+
 - (void)setUpVariableWithBuilder:(LynxViewBuilder*)builder
                    containerView:(UIView<LUIBodyView>*)containerView
                       screenSize:(CGSize)screenSize {
@@ -203,7 +219,7 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   _enableTextNonContiguousLayout = [builder enableTextNonContiguousLayout];
   _enableLayoutOnly = [LynxEnv.sharedInstance getEnableLayoutOnly];
   _embeddedMode = [builder getEmbeddedMode];
-
+  _templateBundle = [builder lynxTemplateBundleForEngineReused];
   builder.config = builder.config ?: [LynxEnv sharedInstance].config;
   builder.config = builder.config ?: [[LynxConfig alloc] initWithProvider:nil];
   _config = builder.config;
@@ -219,6 +235,12 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   _lynxUIRenderer = builder.lynxUIRenderer;
 
   [self setUpContainerView:containerView builder:builder];
+
+  _enableReuseEngine = ((_embeddedMode & LynxEmbeddedModeEnginePool) != 0 &&
+                        builder.lynxTemplateBundleForEngineReused != nil);
+  if (_enableReuseEngine) {
+    [self reuseLynxEngine];
+  }
 }
 
 - (void)setUpContainerView:(UIView<LUIBodyView>*)containerView builder:(LynxViewBuilder*)builder {
@@ -282,7 +304,12 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
 - (void)setUpFrame:(CGRect)frame {
   // update viewport when preset width and height
-  [self updateFrame:frame];
+  TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_RENDER_SETUP_FRAME);
+
+  // If the engine is from the pool, there's no need to update the viewport again.
+  if (!_isEngineInitFromReusePool) {
+    [self updateFrame:frame];
+  }
   _frameOfLynxView = frame;
   if (_containerView && !CGRectEqualToRect(_containerView.frame, _frameOfLynxView) &&
       !CGRectEqualToRect(CGRectZero, _frameOfLynxView)) {
@@ -322,7 +349,15 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   _lynxSSRHelper = nil;
 
   _globalProps = [_globalProps deepClone];
-  [_lynxUIRenderer reset];
+
+  if (_lynxEngine == nil) {
+    [_lynxUIRenderer reset];
+    [_shadowNodeOwner destroySelf];
+  } else if ([_lynxEngine isRunOnCurrentTemplateRender:self]) {
+    [_lynxUIRenderer reset];
+    [_shadowNodeOwner destroySelf];
+    [self destroyLynxEngine];
+  }
 
   shell_->ClearPipelineTimingInfo();
   // remove generic info
@@ -335,26 +370,41 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
     [_delegate templateRenderOnTransitionUnregister:self];
   }
 
-  if (_shadowNodeOwner) {
-    [_shadowNodeOwner destroySelf];
-  }
-
   [self reset:lastInstanceId];
 
   [self updateViewport];
   [self setUpTiming];
 }
 
+- (void)detachLynxEngine {
+  _lynxEngine = nil;
+}
+
+- (void)destroyLynxEngine {
+  if (_lynxEngine) {
+    [_lynxEngine destroy];
+    _lynxEngine = nil;
+  }
+}
+
+// TODO(huangweiwu): maybe we need remove this method..
 - (void)clearForDestroy {
   [_lynxUIRenderer reset];
-
   [LynxEventReporter clearCacheForInstanceId:_context.instanceId];
   _context.instanceId = kUnknownInstanceId;
   shell_->Destroy();
 }
 
 - (void)dealloc {
-  [_lynxUIRenderer reset];
+  if (_lynxEngine == nil) {
+    [_lynxUIRenderer reset];
+    [_shadowNodeOwner destroySelf];
+  } else {
+    [_lynxUIRenderer reset];
+    [_shadowNodeOwner destroySelf];
+    [self destroyLynxEngine];
+  }
+
   pageConfig_.reset();
   // ios block cannot capture std::unique_ptr, tricky...
   auto* shell = shell_.release();
@@ -403,6 +453,15 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
     [self updateGlobalPropsWithTemplateData:meta.globalProps];
   }
 
+  if (meta.loadMode == LynxLoadModeRenderSSR) {
+    [self loadSSRDataWithMeta:meta];
+    return;
+  }
+
+  if (_lynxSSRHelper && meta.loadMode == LynxLoadModeHydrateSSR) {
+    [_lynxSSRHelper onHydrateStart];
+  }
+
   if (meta.templateBundle) {
     [self loadTemplateBundle:meta.templateBundle withURL:meta.url initData:meta.initialData];
   } else if (meta.binaryData) {
@@ -428,6 +487,9 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
   [self updateUrl:url];
   [self dispatchViewDidStartLoading];
+  // TODO(zhoumingsong.smile) move attachToDebugBridge to dispatchViewDidStartLoading
+  // Due to lynxDevTool UI session limitations, we cannot do this yet
+  [self->_devTool attachDebugBridge:url];
   [self internalLoadTemplate:tem withUrl:url initData:data];
 }
 
@@ -455,9 +517,15 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
              if (!error) {
                if (templateRes.bundle) {
                  [weakSelf.devTool onLoadFromBundle:templateRes.bundle withURL:url initData:data];
+                 // TODO(zhoumingsong.smile) move attachToDebugBridge to dispatchViewDidStartLoading
+                 // Due to lynxDevTool UI session limitations, we cannot do this yet
+                 [self->_devTool attachDebugBridge:url];
                  [weakSelf loadTemplateBundle:templateRes.bundle withURL:url initData:data];
                } else if (templateRes.data) {
                  [weakSelf.devTool onTemplateLoadSuccess:templateRes.data];
+                 // TODO(zhoumingsong.smile) move attachToDebugBridge to dispatchViewDidStartLoading
+                 // Due to lynxDevTool UI session limitations, we cannot do this yet
+                 [self->_devTool attachDebugBridge:url];
                  [weakSelf internalLoadTemplate:templateRes.data withUrl:url initData:data];
                }
              } else {
@@ -487,6 +555,13 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 - (void)loadTemplateBundle:(LynxTemplateBundle*)bundle
                    withURL:(NSString*)url
                   initData:(LynxTemplateData*)data {
+  if (_enableReuseEngine && [_lynxEngine hasLoaded] &&
+      [_lynxEngine isRunOnCurrentTemplateRender:self]) {
+    // TODO(renzhongyue): attachUIBodyView
+    [self updateDataWithTemplateData:data];
+    [_lynxEngine registerToReuse];
+    return;
+  }
   TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_RENDER_LOAD_TEMPLATE_BUNDLE, "url", [url UTF8String]);
   auto pipeline_options = std::make_shared<lynx::tasm::PipelineOptions>();
   pipeline_options->pipeline_origin = lynx::tasm::timing::kLoadBundle;
@@ -499,6 +574,9 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
   [self updateUrl:url];
   [self dispatchViewDidStartLoading];
+  // TODO(zhoumingsong.smile) move attachToDebugBridge to dispatchViewDidStartLoading
+  // Due to lynxDevTool UI session limitations, we cannot do this yet
+  [self->_devTool attachDebugBridge:url];
   if ([bundle errorMsg]) {
     NSString* errorMsg =
         [NSString stringWithFormat:@"LynxTemplateRender loadTemplateBundle with an invalid "
@@ -546,13 +624,14 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
           // element bundle passed in by the business.
           copied_bundle.SetElementBundle(template_bundle->GetElementBundle().DeepClone());
         }
-        [self->_devTool attachDebugBridge:url];
         [self markTiming:lynx::tasm::timing::kFfiStart
               pipelineID:pipeline_options->pipeline_id.c_str()];
+        pipeline_options->enable_pre_painting = _enablePrePainting;
+        pipeline_options->enable_dump_element_tree = _enableDumpElement;
         self->shell_->LoadTemplateBundle(lynx::base::SafeStringConvert([url UTF8String]),
-                                         std::move(copied_bundle), pipeline_options, ptr,
-                                         _enablePrePainting, _enableDumpElement);
+                                         std::move(copied_bundle), pipeline_options, ptr);
         _hasStartedLoad = YES;
+        [_lynxEngine registerToReuse];
       }
       withErrorCallback:^(NSString* msg, NSString* stack) {
         __strong LynxTemplateRender* strongSelf = weakSelf;
@@ -562,6 +641,9 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
 - (void)internalLoadTemplate:(NSData*)tem withUrl:(NSString*)url initData:(LynxTemplateData*)data {
   TRACE_EVENT(LYNX_TRACE_CATEGORY, TEMPLATE_RENDER_INTERNAL_LOAD_TEMPLATE, "url", [url UTF8String]);
+  // TODO(zhoumingsong.smile) move attachToDebugBridge to dispatchViewDidStartLoading
+  // Due to lynxDevTool UI session limitations, we cannot do this yet
+  [self->_devTool attachDebugBridge:url];
   auto pipeline_options = std::make_shared<lynx::tasm::PipelineOptions>();
   pipeline_options->pipeline_origin = lynx::tasm::timing::kLoadBundle;
   pipeline_options->need_timestamps = YES;
@@ -570,6 +652,10 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
       pipelineStartTimestamp:pipeline_options->pipeline_start_timestamp];
   [self markTiming:lynx::tasm::timing::kLoadBundleStart
         pipelineID:pipeline_options->pipeline_id.c_str()];
+
+  pipeline_options->enable_pre_painting = _enablePrePainting;
+  pipeline_options->enable_recycle_template_bundle = _enableRecycleTemplateBundle;
+  pipeline_options->enable_dump_element_tree = _enableDumpElement;
 
   __weak LynxTemplateRender* weakSelf = self;
   [self
@@ -586,12 +672,10 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
         }
         auto securityService = LynxService(LynxServiceSecurityProtocol);
         if (securityService == nil) {
-          [self->_devTool attachDebugBridge:url];
           // if securityService is nil, Skip Security Check.
           [self markTiming:lynx::tasm::timing::kFfiStart
                 pipelineID:pipeline_options->pipeline_id.c_str()];
-          self->shell_->LoadTemplate([url UTF8String], ConvertNSBinary(tem), pipeline_options, ptr,
-                                     _enablePrePainting, _enableRecycleTemplateBundle);
+          self->shell_->LoadTemplate([url UTF8String], ConvertNSBinary(tem), pipeline_options, ptr);
           _hasStartedLoad = YES;
         } else {
           [self markTiming:lynx::tasm::timing::kVerifyTasmStart
@@ -603,11 +687,10 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
           [self markTiming:lynx::tasm::timing::kVerifyTasmEnd
                 pipelineID:pipeline_options->pipeline_id.c_str()];
           if (verification.verified) {
-            [self->_devTool attachDebugBridge:url];
             [self markTiming:lynx::tasm::timing::kFfiStart
                   pipelineID:pipeline_options->pipeline_id.c_str()];
             self->shell_->LoadTemplate([url UTF8String], ConvertNSBinary(tem), pipeline_options,
-                                       ptr, _enablePrePainting, _enableRecycleTemplateBundle);
+                                       ptr);
             _hasStartedLoad = YES;
           } else {
             [self reportError:ECLynxAppBundleVerifyInvalidSignature
@@ -632,6 +715,11 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
     [LynxService(LynxServiceMonitorProtocol) reportErrorGlobalContextTag:LynxContextTagLastLynxURL
                                                                     data:finalSchema];
   }
+
+  if (_lynxSSRHelper) {
+    [self onLoadTemplateFromSSRPage];
+  }
+
   if (_hasStartedLoad || self->shell_->IsDestroyed()) {
     [self reset];
   } else {
@@ -825,6 +913,16 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
 #pragma mark - SSR
 
+- (void)loadSSRDataWithMeta:(LynxLoadMeta*)meta {
+  if (meta.binaryData) {
+    [self loadSSRData:meta.binaryData withURL:meta.url initData:meta.initialData];
+  } else if (meta.url) {
+    [self loadSSRDataFromURL:meta.url initData:meta.initialData];
+  } else {
+    _LogE(@"SSR rendering failed: Binary data is invalid or URL is empty.");
+  }
+}
+
 - (void)loadSSRData:(NSData*)tem
             withURL:(NSString*)url
            initData:(nullable LynxTemplateData*)initData {
@@ -852,7 +950,8 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
         // wating for hydarte
         _hasStartedLoad = YES;
-        [strongSelf.lynxSSRHelper onLoadSSRDataBegan:url];
+        _lynxSSRHelper = [[LynxSSRHelper alloc] init];
+        [_lynxSSRHelper onLoadSSRDataStart];
         auto data = ConvertNSBinary(tem);
         std::shared_ptr<lynx::tasm::TemplateData> ptr(nullptr);
         lynx::lepus::Value value;
@@ -914,21 +1013,26 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   }
 }
 
+- (void)onLoadTemplateFromSSRPage {
+  if (_lynxSSRHelper && [_lynxSSRHelper isHydrateStarted]) {
+    _hasStartedLoad = NO;
+    [_lynxSSRHelper onHydrateExecuting];
+  }
+}
+
 - (void)ssrHydrate:(nonnull NSData*)tem
            withURL:(nonnull NSString*)url
           initData:(nullable LynxTemplateData*)data {
-  if ([_lynxSSRHelper isHydratePending]) {
-    _hasStartedLoad = NO;
-    [_lynxSSRHelper onHydrateBegan:url];
+  if (_lynxSSRHelper) {
+    [_lynxSSRHelper onHydrateStart];
   }
 
   [self loadTemplate:tem withURL:url initData:data];
 }
 
 - (void)ssrHydrateFromURL:(NSString*)url initData:(nullable LynxTemplateData*)data {
-  if ([_lynxSSRHelper isHydratePending]) {
-    _hasStartedLoad = NO;
-    [_lynxSSRHelper onHydrateBegan:url];
+  if (_lynxSSRHelper) {
+    [_lynxSSRHelper onHydrateStart];
   }
 
   [self loadTemplateFromURL:url initData:data];
@@ -1377,13 +1481,6 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   if (!self->shell_->IsDestroyed()) {
     self->shell_->SetEnableUIFlush(!needPendingUIOperation);
   }
-}
-
-- (LynxSSRHelper*)lynxSSRHelper {
-  if (!_lynxSSRHelper) {
-    _lynxSSRHelper = [[LynxSSRHelper alloc] init];
-  }
-  return _lynxSSRHelper;
 }
 
 - (LynxUIOwner*)uiOwner {
@@ -1897,6 +1994,27 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   }
 }
 
+- (void)updateMemoryUsage {
+  if (![LynxPerformanceController isMemoryMonitorEnabled]) {
+    return;
+  }
+  __weak __typeof(self) weakSelf = self;
+  int delay = [[LynxEnv sharedInstance] memoryAcquisitionDelaySec];
+  // Since resources are usually loaded asynchronously, such as images downloaded asynchronously
+  // from the network, it is necessary to delay the collection of memory so as to collect as much
+  // resource memory as possible.
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __strong __typeof(weakSelf) strongSelf = weakSelf;
+                   if (!strongSelf) {
+                     return;
+                   }
+                   NSDictionary<NSString*, LynxMemoryRecord*>* records =
+                       [[strongSelf uiOwner] getMemoryUsage];
+                   [[strongSelf performanceController] updateMemoryUsageWithRecords:records];
+                 });
+}
+
 #pragma mark - Preload
 
 - (void)attachLynxView:(LynxView* _Nonnull)lynxView {
@@ -1979,6 +2097,7 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
     [_devTool onPageUpdate];
   }
   [_delegate templateRender:self onPageChanged:isFirstScreen];
+  [self updateMemoryUsage];
 }
 
 - (void)onTasmFinishByNative {
@@ -1991,7 +2110,7 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 }
 
 - (void)onSSRHydrateFinished:(NSString*)url {
-  [_lynxSSRHelper onHydrateFinished:url];
+  [_lynxSSRHelper onHydrateFinished];
 }
 
 - (void)onRuntimeReady {
@@ -2273,6 +2392,10 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
   return _lynxUIRenderer;
 }
 
+- (LynxShadowNodeOwner*)shadowNodeOwner {
+  return _shadowNodeOwner;
+}
+
 - (void)onEventCapture:(NSInteger)targetID
         withEventCatch:(BOOL)isCatch
             andEventID:(int64_t)eventID {
@@ -2285,6 +2408,24 @@ LYNX_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder*)aDecoder)
 
 - (void)onEventFire:(NSInteger)targetID withEventStop:(BOOL)isStop andEventID:(int64_t)eventID {
   [[_lynxUIRenderer.uiOwner findUIBySign:targetID] onEventFire:isStop withEventID:eventID];
+}
+
+- (LynxViewBuilderBlock)getLynxViewBuilderBlock {
+  // TODO(zhoupeng.z): provide with move params
+  return ^(LynxViewBuilder* builder) {
+    builder.fontScale = self->_fontScale;
+    builder.enablePreUpdateData = YES;
+    builder.fetcher = self->_fetcher;
+    builder.enableGenericResourceFetcher =
+        self->_enableGenericResourceFetcher ? LynxBooleanOptionTrue : LynxBooleanOptionFalse;
+    builder.genericResourceFetcher = [self->_lynxUIRenderer genericResourceFetcher];
+    builder.mediaResourceFetcher = [self->_lynxUIRenderer mediaResourceFetcher];
+    builder.templateResourceFetcher = [self->_lynxUIRenderer templateResourceFetcher];
+    builder.screenSize = [[self->_lynxUIRenderer getScreenMetrics] screenSize];
+    builder.lynxBackgroundRuntimeOptions =
+        [[LynxBackgroundRuntimeOptions alloc] initWithOptions:self->_runtimeOptions];
+    [builder setThreadStrategyForRender:self->_threadStrategyForRendering];
+  };
 }
 
 @end

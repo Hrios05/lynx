@@ -14,15 +14,13 @@ LYNX_ROOT_PATH = os.getcwd()
 TOOLS_PATH = os.path.join(LYNX_ROOT_PATH, "tools")
 ANDROID_API_PATH = os.path.join(LYNX_ROOT_PATH, "platform", "android", "api")
 IOS_API_PATH = os.path.join(LYNX_ROOT_PATH, "platform", "darwin", "ios", "api")
-HARMONY_API_PATH = os.path.join(
-    LYNX_ROOT_PATH, "oss_harmony", "platform", "harmony", "api"
-)
+HARMONY_API_PATH = os.path.join(LYNX_ROOT_PATH, "platform", "harmony", "api")
 ERROR_CODE_PACKAGE_DIR = os.path.join(LYNX_ROOT_PATH, "tools", "error_code")
 FEATURE_COUNT_PACKAGE_DIR = os.path.join(LYNX_ROOT_PATH, "tools", "feature_count")
 TOOLS_DIR_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 CSS_GENERATOR_PATH = os.path.join(TOOLS_DIR_PATH, "css_generator")
 PERFORMANCE_OBSERVER_PATH = os.path.join(
-    LYNX_ROOT_PATH, "tools", "performance", "performance_observer"
+    TOOLS_DIR_PATH, "performance", "performance_observer"
 )
 API_DOC_ANNOTATION = """/*
  * This file is generated, do not edit.
@@ -42,13 +40,26 @@ with open(API_CONFIG_PATH, "r") as f:
     DOXYGEN_PATH = os.path.normpath(
         os.path.join(LYNX_ROOT_PATH, API_CONFIG["path"]["doxygen"])
     )
+    if not os.path.exists(DOXYGEN_PATH):
+        DOXYGEN_PATH = os.path.join(
+            LYNX_ROOT_PATH, os.pardir, API_CONFIG["path"]["doxygen"]
+        )
+
     HANDLE_FAILED_INSTRUCTION = API_CONFIG["path"]["instruction_doc"]
+
     NODE_PATH = os.path.normpath(
         os.path.join(LYNX_ROOT_PATH, API_CONFIG["path"]["node"])
     )
+    if not os.path.exists(NODE_PATH):
+        NODE_PATH = os.path.join(LYNX_ROOT_PATH, os.pardir, API_CONFIG["path"]["node"])
+
     CLANG_FORMAT_PATH = os.path.normpath(
         os.path.join(LYNX_ROOT_PATH, API_CONFIG["path"]["llvm"], "bin", "clang-format")
     )
+    if not os.path.exists(CLANG_FORMAT_PATH):
+        CLANG_FORMAT_PATH = os.path.join(
+            LYNX_ROOT_PATH, os.pardir, API_CONFIG["path"]["llvm"], "bin", "clang-format"
+        )
 
 
 def guarantee_generated_files():

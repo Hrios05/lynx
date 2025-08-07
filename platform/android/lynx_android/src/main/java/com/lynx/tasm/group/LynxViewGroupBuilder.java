@@ -1,0 +1,45 @@
+// Copyright 2025 The Lynx Authors. All rights reserved.
+// Licensed under the Apache License Version 2.0 that can be found in the
+// LICENSE file in the root directory of this source tree.
+package com.lynx.tasm.group;
+
+import androidx.annotation.NonNull;
+import com.lynx.tasm.TemplateBundle;
+import com.lynx.tasm.TemplateData;
+
+public class LynxViewGroupBuilder extends LynxBaseConfigurator<LynxViewGroupBuilder> {
+  // App Bundle url shared by multiple lynxViews config by the same LynxViewGroup;
+  private String url;
+
+  // initial globalProps shared by multiple lynxViews config by the same LynxViewGroup;
+  private TemplateBundle templateBundle;
+
+  // initial globalProps shared by multiple lynxViews config by the same LynxViewGroup;
+  private TemplateData globalProps;
+
+  public LynxViewGroupBuilder setUrl(@NonNull String url) {
+    this.url = url;
+    return this;
+  }
+
+  public LynxViewGroupBuilder setTemplateBundle(@NonNull TemplateBundle templateBundle) {
+    this.templateBundle = templateBundle;
+    return this;
+  }
+
+  public LynxViewGroupBuilder setGlobalProps(@NonNull TemplateData globalProps) {
+    this.globalProps = globalProps;
+    return this;
+  }
+
+  public ILynxViewGroup build() {
+    LynxViewGroup group = new LynxViewGroup(url, templateBundle, globalProps, behaviorRegistry,
+        lynxRuntimeOptions, mContextData, threadStrategy, enableAutoExpose, enableLayoutSafepoint,
+        enableUnifiedPipeline, forceDarkAllowed, densityOverride, screenWidth, screenHeight,
+        enableMultiAsyncThread, enableSyncFlush, enablePendingJsTask, enableAsyncHydration,
+        enableAutoConcurrency, enableVSyncAlignedMessageLoop, enableJSRuntime, enableAirStrictMode,
+        debuggable, presetWidthMeasureSpec, presetHeightMeasureSpec, fontScale, enablePreUpdateData,
+        uiRendererCreator, embeddedMode, hasPresetMeasureSpec);
+    return group;
+  }
+}

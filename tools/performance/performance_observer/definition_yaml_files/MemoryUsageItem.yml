@@ -1,11 +1,10 @@
 MemoryUsageItem:
   type: object
-  x-ignore-ts: true
   properties:
     category:
       type: string
-    sizeKb:
-      type: number
+    sizeBytes:
+      type: long
     detail:
       type: map
       keyType: string

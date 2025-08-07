@@ -38,6 +38,7 @@
 #include "core/renderer/dom/fiber/page_element.h"
 #include "core/renderer/dom/vdom/radon/radon_element.h"
 #include "core/renderer/dom/vdom/radon/radon_types.h"
+#include "core/renderer/pipeline/pipeline_layout_data.h"
 #include "core/renderer/ui_wrapper/common/prop_bundle_creator_default.h"
 #include "core/renderer/ui_wrapper/layout/layout_context.h"
 #include "core/renderer/ui_wrapper/painting/painting_context.h"
@@ -291,7 +292,7 @@ class ElementManager : public ElementContextDelegate {
         const tasm::PipelineID &pipeline_id,
         const tasm::timing::TimingFlag &timing_flag) = 0;
 
-    virtual void ReportElementMemoryInfo(float mem_size_byte,
+    virtual void ReportElementMemoryInfo(int64_t mem_size_bytes,
                                          int element_count) = 0;
   };
 
@@ -299,7 +300,9 @@ class ElementManager : public ElementContextDelegate {
       std::unique_ptr<PaintingCtxPlatformImpl> platform_painting_context,
       Delegate *delegate, const LynxEnvConfig &lynx_env_config,
       int32_t instance_id = tasm::report::kUnknownInstanceId,
-      const std::shared_ptr<base::VSyncMonitor> &vsync_monitor = nullptr);
+      const std::shared_ptr<base::VSyncMonitor> &vsync_monitor = nullptr,
+      std::unique_ptr<lynx::tasm::LayoutCtxPlatformImpl>
+          platform_layout_context = nullptr);
 
   // avoid pImpl idiom type of compilation error when self inlclude
   // std::unique_ptr object
@@ -397,8 +400,10 @@ class ElementManager : public ElementContextDelegate {
   int32_t GetNodeInfoByTag(const base::String &tag_name);
   bool IsShadowNodeVirtual(const base::String &tag_name);
 
-  LayoutResult MeasureText(int id, PropArray *prop_array, int width,
-                           int width_mode, int height, int height_mode);
+  LayoutResult MeasureText(Element *element, float width, int width_mode,
+                           float height, int height_mode);
+  void DispatchLayoutBefore(Element *element);
+  void AlignText(Element *element);
 
   void MarkLayoutDirty(int32_t id);
   void AttachLayoutNodeType(int32_t id, const base::String &tag,
@@ -1075,6 +1080,16 @@ class ElementManager : public ElementContextDelegate {
 
   inline void IncreaseElementCount() { element_count_++; }
 
+  inline void IncreaseWrapperElementCount() { wrapper_element_count_++; }
+
+  inline void IncreaseViewElementCount() { view_element_count_++; }
+
+  inline void IncreaseTextElementCount() { text_element_count_++; }
+
+  inline void IncreaseImageElementCount() { image_element_count_++; }
+
+  inline void IncreaseComponentElementCount() { component_element_count_++; }
+
   inline void IncreaseLayoutOnlyElementCount() { layout_only_element_count_++; }
 
   inline void IncreaseLayoutOnlyTransitionCount() {
@@ -1112,7 +1127,8 @@ class ElementManager : public ElementContextDelegate {
    * call this function to request layout
    * @param options the pipeline options passed to layout context
    */
-  void RequestLayout(const std::shared_ptr<PipelineOptions> &options);
+  PipelineLayoutData RequestLayout(
+      const std::shared_ptr<PipelineOptions> &options);
 
   inline bool GetEnableBatchLayoutTaskWithSyncLayout() {
     return enable_batch_layout_task_with_sync_layout_;
@@ -1151,6 +1167,13 @@ class ElementManager : public ElementContextDelegate {
     return enable_layout_in_element_mode_;
   }
 
+  LayoutCtxPlatformImpl *layout_context() {
+    return platform_layout_context_.get();
+  }
+
+  // used for unified pipeline;
+  void RequestResolve(std::shared_ptr<PipelineOptions> &pipeline_options);
+
  protected:
   /**
    * call this function after exec OnPatchFinishForFiber
@@ -1185,6 +1208,7 @@ class ElementManager : public ElementContextDelegate {
       base::MoveOnlyClosure<void, bool> patch_finish_callback,
       FiberElement *root = nullptr);
   void WillDestroy();
+  void ReportElementStatistic();
   ElementManager(const ElementManager &) = delete;
   ElementManager &operator=(const ElementManager &) = delete;
   void OnListComponentUpdated(const std::shared_ptr<PipelineOptions> &options);
@@ -1206,6 +1230,11 @@ class ElementManager : public ElementContextDelegate {
   std::atomic_int element_count_{0};
   std::atomic_int layout_only_element_count_{0};
   std::atomic_int layout_only_transition_count_{0};
+  std::atomic_int wrapper_element_count_{0};
+  std::atomic_int view_element_count_{0};
+  std::atomic_int text_element_count_{0};
+  std::atomic_int image_element_count_{0};
+  std::atomic_int component_element_count_{0};
 
   bool devtool_flag_{false};
 
@@ -1254,7 +1283,7 @@ class ElementManager : public ElementContextDelegate {
 
   bool enable_fiber_element_memory_reporter_{false};
   bool enable_layout_in_element_mode_{false};
-  bool has_viewport_ready_{true};
+  bool has_viewport_ready_{false};
 
   LynxEnvConfig lynx_env_config_;
   std::shared_ptr<PageConfig> config_;
@@ -1265,7 +1294,10 @@ class ElementManager : public ElementContextDelegate {
 
   Delegate *delegate_;
   ElementManagerDelegate *element_manager_delegate_{nullptr};
-  std::shared_ptr<base::VSyncMonitor> vsync_monitor_;
+  std::shared_ptr<base::VSyncMonitor> vsync_monitor_{nullptr};
+  std::unique_ptr<LayoutCtxPlatformImpl> platform_layout_context_{nullptr};
+  class LayoutNodeManagerForEM;
+  std::unique_ptr<LayoutNodeManagerForEM> layout_node_manager_;
 
   CSSFragment *preresolving_style_sheet_{nullptr};
   std::unique_ptr<starlight::ComputedCSSStyle> platform_computed_css_;

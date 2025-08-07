@@ -444,7 +444,7 @@ void PageProxy::SetRadonPage(RadonPage *page) {
 // used for unified pipeline;
 void PageProxy::RequestResolve(
     std::shared_ptr<PipelineOptions> &pipeline_options) {
-  if (pipeline_options->enable_unified_pixel_pipeline) {
+  if (pipeline_options && pipeline_options->enable_unified_pixel_pipeline) {
     // TODO(nihao.royal): modify pipeline_option here directly here because
     // only loadTemplate is supported now, current pipeline context won't be
     // updated. use
@@ -1326,7 +1326,7 @@ void PageProxy::RenderWithSSRData(
   pipeline_options->is_first_screen = true;
   // TODO(kechenglong): SetNeedsLayout if and only if needed.
   element_manager()->SetNeedsLayout();
-  element_manager()->OnPatchFinish(pipeline_options);
+  RequestResolve(pipeline_options);
 
   ssr::SSRRenderUtils::ProcessSsrScriptIfNeeded(
       ssr_out_value, this, injected_data, ssr_data_update_manager_.get());
@@ -1338,7 +1338,7 @@ void PageProxy::RenderWithSSRData(
   hydrate_info_ = std::move(info);
 
   pipeline_options->is_first_screen = true;
-  element_manager()->OnPatchFinish(pipeline_options);
+  RequestResolve(pipeline_options);
 
   // script
   TRACE_EVENT(LYNX_TRACE_CATEGORY, PAGE_PROXY_SSR_PROCESS_SCRIPT);

@@ -287,7 +287,7 @@ TEST_P(FiberElementTest, ListItemTest) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -305,7 +305,7 @@ TEST_P(FiberElementTest, ListItemTest) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -1835,7 +1835,7 @@ TEST_P(FiberElementTest, TestSetAndRemoveClass) {
   // constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs parser_config;
-  auto tokens = std::make_shared<CSSParseToken>(parser_config);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_config);
 
   CSSParserTokenMap indexTokensMap;
   // class .test-class
@@ -2020,7 +2020,7 @@ TEST_P(FiberElementTest, TestCSSResolveCase01) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -2038,7 +2038,7 @@ TEST_P(FiberElementTest, TestCSSResolveCase01) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDOpacity;
     auto impl = lepus::Value(0.6);
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2052,7 +2052,7 @@ TEST_P(FiberElementTest, TestCSSResolveCase01) {
 
   // class .test02
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDOpacity;
     auto impl = lepus::Value(0.3);  // the same as .test
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2209,7 +2209,7 @@ TEST_P(FiberElementTest, TestCSSResolveCase02) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -2366,7 +2366,7 @@ TEST_P(FiberElementTest, TestOverflowAndLayoutOnly) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -2384,7 +2384,7 @@ TEST_P(FiberElementTest, TestOverflowAndLayoutOnly) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2485,7 +2485,7 @@ TEST_P(FiberElementTest, TestIsLayoutOnlyUpdate) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -2503,7 +2503,7 @@ TEST_P(FiberElementTest, TestIsLayoutOnlyUpdate) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
     std::string key = ".test01";
     auto& sheets = tokens->sheets();
@@ -2565,7 +2565,7 @@ TEST_P(FiberElementTest, TestZIndexRemovedRelated) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -2751,7 +2751,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase00) {
   CSSParserConfigs configs;
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2769,7 +2769,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase00) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2888,7 +2888,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase01) {
   CSSParserConfigs configs;
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2902,7 +2902,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase01) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -2994,7 +2994,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase02) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3083,7 +3083,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase03) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3097,7 +3097,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase03) {
 
   // class .ani2
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("yellow");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3188,7 +3188,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase04) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("lynx-rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3202,7 +3202,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase04) {
 
   // class .ani2
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3295,7 +3295,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase05) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("lynx-rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3309,7 +3309,7 @@ TEST_P(FiberElementTest, FiberElementInheritCase05) {
 
   // class .ani2
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3407,7 +3407,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase) {
 
   // class .title
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDTextAlign;
     auto impl = lepus::Value("center");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3421,7 +3421,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase) {
 
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("ltr");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3489,7 +3489,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase01) {
 
   // class .title
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDTextAlign;
     auto impl = lepus::Value("center");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3503,7 +3503,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase01) {
 
   // class .root-ltr
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("ltr");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3517,7 +3517,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase01) {
 
   // class.root-rtl
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3594,7 +3594,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase_logicalCSSProperty) {
 
   // class .title
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     tokens.get()->raw_attributes_[CSSPropertyID::kPropertyIDTextAlign] =
         CSSValue(lepus::Value("center"));
     tokens.get()
@@ -3619,7 +3619,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase_logicalCSSProperty) {
 
   // class .root-ltr
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("ltr");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3633,7 +3633,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase_logicalCSSProperty) {
 
   // class.root-rtl
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDDirection;
     auto impl = lepus::Value("rtl");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -3815,7 +3815,7 @@ TEST_P(FiberElementTest, FiberElementDirectionCase02) {
 
   // class .left
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id_border_top_left_radius =
         CSSPropertyID::kPropertyIDBorderTopLeftRadius;
     auto impl_border_top_left_radius = lepus::Value("12rpx");
@@ -3874,6 +3874,91 @@ TEST_P(FiberElementTest, FiberElementDirectionCase02) {
   EXPECT_TRUE(top_right_radius_it != element_painting_node_->props_.end());
   auto tr_value = top_right_radius_it->second.Array()->get(0).Number();
   EXPECT_TRUE(tr_value == 12 * kScreeWidth / kRpxRatio);
+}
+
+// Verify reset CSS Property need to consider current direction
+TEST_P(FiberElementTest, FiberElementDirectionCase03) {
+  auto config = std::make_shared<PageConfig>();
+  config->SetEnableFiberArch(true);
+  config->SetEnableCSSInheritance(true);
+  std::unordered_set<CSSPropertyID> list = {kPropertyIDDirection};
+  config->SetCustomCSSInheritList(std::move(list));
+  manager->SetConfig(config);
+
+  // css related
+  StyleMap indexAttributes;
+
+  CSSParserTokenMap indexTokensMap;
+  CSSParserConfigs configs;
+
+  // class .title
+  {
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
+    tokens.get()->raw_attributes_[CSSPropertyID::kPropertyIDMarginRight] =
+        CSSValue(lepus::Value("12px"));
+
+    std::string key = ".title";
+    auto& sheets = tokens->sheets();
+    auto shared_css_sheets = std::make_shared<CSSSheet>(key);
+    sheets.emplace_back(shared_css_sheets);
+    indexTokensMap.insert(std::make_pair(key, tokens));
+  }
+
+  // class.root-rtl
+  {
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
+    auto id = CSSPropertyID::kPropertyIDDirection;
+    auto impl = lepus::Value("lynx-rtl");
+    tokens.get()->raw_attributes_[id] = CSSValue(impl);
+
+    std::string key = ".root-rtl";
+    auto& sheets = tokens->sheets();
+    auto shared_css_sheet = std::make_shared<CSSSheet>(key);
+    sheets.emplace_back(shared_css_sheet);
+    indexTokensMap.insert(std::make_pair(key, tokens));
+  }
+
+  const std::vector<int32_t> dependent_ids;
+  CSSKeyframesTokenMap keyframes;
+  CSSFontFaceRuleMap fontfaces;
+  auto indexFragment = std::make_shared<SharedCSSFragment>(
+      1, dependent_ids, indexTokensMap, keyframes, fontfaces);
+
+  auto page = manager->CreateFiberPage("page", 11);
+  page->style_sheet_ =
+      std::make_unique<CSSFragmentDecorator>(indexFragment.get());
+
+  auto root = manager->CreateFiberView();
+  root->parent_component_element_ = page.get();
+  root->SetClass("root-rtl");
+  page->InsertNode(root);
+
+  auto view_element0 = manager->CreateFiberView();
+  view_element0->parent_component_element_ = page.get();
+  view_element0->SetClass("title");
+  root->InsertNode(view_element0);
+
+  auto text_element0 = manager->CreateFiberText("text");
+  text_element0->SetAttribute("text", lepus::Value("title"));
+  text_element0->SetStyle(kPropertyIDFontSize, lepus::Value("50px"));
+  view_element0->InsertNode(text_element0);
+
+  page->FlushActionsAsRoot();
+
+  EXPECT_TRUE(HasCaptureSignWithStyleKeyAndValueAtLeastNTimes(
+      view_element0->impl_id(), CSSPropertyID::kPropertyIDMarginLeft,
+      tasm::CSSValue(lepus::Value(12), CSSValuePattern::PX), 1));
+
+  tasm_mediator.captured_ids_.clear();
+  tasm_mediator.captured_bundles_.clear();
+
+  view_element0->RemoveAllClass();
+  page->FlushActionsAsRoot();
+
+  EXPECT_TRUE(HasCaptureSignWithResetStyleKeyAtLeastNTimes(
+      view_element0->impl_id(), CSSPropertyID::kPropertyIDMarginLeft, 1));
+  EXPECT_FALSE(HasCaptureSignWithResetStyleKeyAtLeastNTimes(
+      view_element0->impl_id(), CSSPropertyID::kPropertyIDMarginRight, 1));
 }
 
 TEST_P(FiberElementTest, RequireFlush) {
@@ -5019,7 +5104,7 @@ TEST_P(FiberElementTest, GetParentComponentCSSFragment) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -5076,7 +5161,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_0) {
   CSSParserTokenMap indexTokenMap;
   // class :root
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-bg-color", "yellow");
     tokens->style_variables_.insert_or_assign("--main-height", "300px");
 
@@ -5089,7 +5174,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_0) {
 
   // class .one
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5107,7 +5192,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_0) {
 
   // class .three
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
@@ -5176,7 +5261,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_1) {
   CSSParserTokenMap indexTokenMap;
   // class :root
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-bg-color", "yellow");
     tokens->style_variables_.insert_or_assign("--main-height", "300px");
 
@@ -5189,7 +5274,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_1) {
 
   // class .one
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5206,7 +5291,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_1) {
 
   // class .two
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5223,7 +5308,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_1) {
 
   // class .three
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
@@ -5299,7 +5384,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_CSS_NG_1) {
   CSSParserTokenMap indexTokenMap;
   // class :root
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-bg-color", "yellow");
     tokens->style_variables_.insert_or_assign("--main-height", "300px");
 
@@ -5312,7 +5397,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_CSS_NG_1) {
 
   // class .one
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5329,7 +5414,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_CSS_NG_1) {
 
   // class .two
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5346,7 +5431,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables_CSS_NG_1) {
 
   // class .three
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
@@ -5448,7 +5533,7 @@ TEST_P(FiberElementTest, UpdateMultipleCSSVariables) {
 
   // class .one
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-bg-color", "yellow");
     tokens->style_variables_.insert_or_assign("--color-2", "red");
     tokens->style_variables_.insert_or_assign("--color-4", "green");
@@ -5471,7 +5556,7 @@ TEST_P(FiberElementTest, UpdateMultipleCSSVariables) {
 
   // class .two
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-height", "100px");
     tokens->style_variables_.insert_or_assign("--color-2", "red");
     tokens->style_variables_.insert_or_assign("--color-4", "green");
@@ -5494,7 +5579,7 @@ TEST_P(FiberElementTest, UpdateMultipleCSSVariables) {
 
   // class .three
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("{{--main-bg-color}}"), CSSValuePattern::STRING,
                  CSSValueType::VARIABLE);
@@ -5610,7 +5695,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
   CSSParserTokenMap indexTokenMap;
   // class :root
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-bg-color", "yellow");
     tokens->style_variables_.insert_or_assign("--main-height", "300px");
 
@@ -5623,7 +5708,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
 
   // class .one
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
@@ -5641,7 +5726,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
 
   // class .two
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--main-height", "100px");
     tokens->style_variables_.insert_or_assign("--main-bg-color", "pink");
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
@@ -5661,7 +5746,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
 
   // class .three
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("white"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
@@ -5681,7 +5766,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
 
   // class .four
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("{{--main-bg-color}}"), CSSValuePattern::STRING,
                  CSSValueType::VARIABLE);
@@ -5739,7 +5824,7 @@ TEST_P(FiberElementTest, UpdateCSSVariables) {
   CSSParserTokenMap counterIndexTokensMap;
   {
     // class .test
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDWidth] =
         CSSValue(lepus::Value("30px"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDHeight] =
@@ -5853,7 +5938,7 @@ TEST_P(FiberElementTest, CSSVariableShorthandProcess) {
   CSSParserTokenMap indexTokenMap;
   // class :root
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->style_variables_.insert_or_assign("--radius-max", "12rpx");
 
     std::string key = ".root";
@@ -5865,7 +5950,7 @@ TEST_P(FiberElementTest, CSSVariableShorthandProcess) {
 
   // class .child
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBorderRadius] =
         CSSValue(lepus::Value("{{--radius-max}}"), CSSValuePattern::STRING,
                  CSSValueType::VARIABLE);
@@ -5938,7 +6023,7 @@ TEST_P(FiberElementTest, SetKeyframes) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -5989,8 +6074,9 @@ TEST_P(FiberElementTest, SetKeyframes) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
-  std::shared_ptr<CSSKeyframesToken> token_ptr1(new CSSKeyframesToken(configs));
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr1 =
+      fml::AdoptRef(new CSSKeyframesToken(configs));
 
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
@@ -6116,7 +6202,7 @@ TEST_P(FiberElementTest, SetMultipleKeyframes) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -6167,8 +6253,9 @@ TEST_P(FiberElementTest, SetMultipleKeyframes) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
-  std::shared_ptr<CSSKeyframesToken> token_ptr1(new CSSKeyframesToken(configs));
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr1 =
+      fml::AdoptRef(new CSSKeyframesToken(configs));
 
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
@@ -6320,7 +6407,7 @@ TEST_P(FiberElementTest, SetKeyframes_new_animator) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -6371,8 +6458,9 @@ TEST_P(FiberElementTest, SetKeyframes_new_animator) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
-  std::shared_ptr<CSSKeyframesToken> token_ptr1(new CSSKeyframesToken(configs));
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr1 =
+      fml::AdoptRef(new CSSKeyframesToken(configs));
 
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
@@ -6451,7 +6539,7 @@ TEST_P(FiberElementTest, SetMultipleKeyframes_new_animator) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -6502,8 +6590,9 @@ TEST_P(FiberElementTest, SetMultipleKeyframes_new_animator) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
-  std::shared_ptr<CSSKeyframesToken> token_ptr1(new CSSKeyframesToken(configs));
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr1 =
+      fml::AdoptRef(new CSSKeyframesToken(configs));
 
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
@@ -6598,7 +6687,7 @@ TEST_P(FiberElementTest, ConsumeAnimationPropBundle) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   const std::vector<int32_t> dependent_ids;
@@ -6640,7 +6729,7 @@ TEST_P(FiberElementTest, ConsumeAnimationPropBundle) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
 
@@ -6704,7 +6793,7 @@ TEST_P(FiberElementTest, ConsumeAnimationPropBundle_new_animator) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   const std::vector<int32_t> dependent_ids;
@@ -6746,7 +6835,7 @@ TEST_P(FiberElementTest, ConsumeAnimationPropBundle_new_animator) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
 
@@ -6878,7 +6967,7 @@ TEST_P(FiberElementTest, TestOnPseudoStatusChanged) {
   CSSParserTokenMap indexTokensMap;
   // class .test
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDOpacity;
     auto impl = lepus::Value(0.3);
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -6893,7 +6982,7 @@ TEST_P(FiberElementTest, TestOnPseudoStatusChanged) {
   CSSParserTokenMap pseudo_map;
   // class .test:active
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDOpacity;
     auto impl = lepus::Value(0.8);
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -7375,7 +7464,7 @@ TEST_P(FiberElementTest, DumpStyleClass) {
   // constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs parser_config;
-  auto tokens = std::make_shared<CSSParseToken>(parser_config);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_config);
 
   CSSParserTokenMap indexTokensMap;
   // class .test-class
@@ -7463,7 +7552,7 @@ TEST_P(FiberElementTest, GetCSSKeyframesToken) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -7513,7 +7602,7 @@ TEST_P(FiberElementTest, GetCSSKeyframesToken) {
   map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
   token->SetKeyframesContent(std::move(map));
 
-  std::shared_ptr<CSSKeyframesToken> token_ptr(token);
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
 
   CSSKeyframesTokenMap keyframes;
   keyframes.insert({keyframe_name, std::move(token_ptr)});
@@ -7632,7 +7721,7 @@ TEST_P(FiberElementTest, TestTagSelectorCase) {
 
   // class text
   {
-    auto token = std::make_shared<CSSParseToken>(parser_config);
+    auto token = fml::MakeRefCounted<CSSParseToken>(parser_config);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto color = lepus::Value("red");
     token->raw_attributes_[id] = CSSValue(color);
@@ -7940,7 +8029,7 @@ TEST_P(FiberElementTest, CSSVariableOrderTest) {
 
   // class .container
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBorder] =
         CSSValue(lepus::Value("1px solid red"));
     tokens->style_variables_["--bg-color"] = "yellow";
@@ -7953,7 +8042,7 @@ TEST_P(FiberElementTest, CSSVariableOrderTest) {
 
   // class .text
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("{{--bg-color}}"), CSSValuePattern::STRING,
                  CSSValueType::VARIABLE);
@@ -7968,7 +8057,7 @@ TEST_P(FiberElementTest, CSSVariableOrderTest) {
 
   // class .text1
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackground] =
         CSSValue(lepus::Value("red"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
@@ -7983,7 +8072,7 @@ TEST_P(FiberElementTest, CSSVariableOrderTest) {
 
   // class .text2
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackground] =
@@ -7998,7 +8087,7 @@ TEST_P(FiberElementTest, CSSVariableOrderTest) {
 
   // class .text3
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackground] =
         CSSValue(lepus::Value("{{--bg-color}}"), CSSValuePattern::STRING,
                  CSSValueType::VARIABLE);
@@ -9323,7 +9412,7 @@ TEST_P(FiberElementTest, CopyListItemTest) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -9341,7 +9430,7 @@ TEST_P(FiberElementTest, CopyListItemTest) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -9888,6 +9977,169 @@ TEST_P(FiberElementTest, ElementBundleTest01) {
               nullptr);
 }
 
+// Verify animation is re-applied after cloning elements
+TEST_P(FiberElementTest, ElementBundleTest02) {
+  // construct css fragment
+  StyleMap indexAttributes;
+  CSSParserConfigs configs;
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
+
+  CSSParserTokenMap indexTokensMap;
+  const std::vector<int32_t> dependent_ids;
+
+  // mock keyframes
+  // raw keyframes
+  constexpr const char* keyframe_name = "ani-img-in";
+
+  CSSRawKeyframesContent raw_keyframes;
+
+  {
+    RawStyleMap* raw_attrs_0 = new RawStyleMap();
+    raw_attrs_0->insert_or_assign(CSSPropertyID::kPropertyIDTransform,
+                                  CSSValue(lepus::Value("scale(0, 0))")));
+    raw_attrs_0->insert_or_assign(CSSPropertyID::kPropertyIDOpacity,
+                                  CSSValue(lepus::Value(0.0)));
+    std::shared_ptr<RawStyleMap> raw_attrs_ptr0(raw_attrs_0);
+    raw_keyframes.insert(
+        std::pair<float, std::shared_ptr<RawStyleMap>>(0.0f, raw_attrs_ptr0));
+
+    RawStyleMap* raw_attrs_1 = new RawStyleMap();
+    raw_attrs_1->insert_or_assign(CSSPropertyID::kPropertyIDTransform,
+                                  CSSValue(lepus::Value("scale(1, 1))")));
+    raw_attrs_1->insert_or_assign(CSSPropertyID::kPropertyIDOpacity,
+                                  CSSValue(lepus::Value(1.0)));
+    std::shared_ptr<RawStyleMap> raw_attrs_ptr1(raw_attrs_1);
+    raw_keyframes.insert(
+        std::pair<float, std::shared_ptr<RawStyleMap>>(1.0f, raw_attrs_ptr1));
+  }
+
+  CSSKeyframesToken* token = new CSSKeyframesToken(configs);
+  token->SetRawKeyframesContent(std::move(raw_keyframes));
+
+  // parsed keyframes
+  CSSKeyframesContent map;
+  StyleMap* attrs0 = new StyleMap();
+  map.insert(std::pair<float, std::shared_ptr<StyleMap>>(0.0f, attrs0));
+  StyleMap* attrs1 = new StyleMap();
+  map.insert(std::pair<float, std::shared_ptr<StyleMap>>(1.0f, attrs1));
+  token->SetKeyframesContent(std::move(map));
+
+  fml::RefPtr<CSSKeyframesToken> token_ptr = fml::AdoptRef(token);
+  CSSKeyframesTokenMap keyframes;
+  keyframes.insert({keyframe_name, std::move(token_ptr)});
+
+  // class .recommend-ani-image-in
+  {
+    auto id = CSSPropertyID::kPropertyIDAnimation;
+    auto impl = lepus::Value("ani-img-in 100ms linear 0.08ms normal both");
+    tokens.get()->raw_attributes_[id] = CSSValue(impl);
+
+    std::string key = ".recommend-ani-image-in";
+    auto& sheets = tokens->sheets();
+    auto shared_css_sheet = std::make_shared<CSSSheet>(key);
+    sheets.emplace_back(shared_css_sheet);
+    indexTokensMap.insert(std::make_pair(key, tokens));
+  }
+
+  // mock fontfaces
+  CSSFontFaceRuleMap fontfaces;
+  std::vector<std::shared_ptr<CSSFontFaceRule>> face_token_list;
+  CSSFontFaceRule* face_token = new CSSFontFaceRule();
+  CSSFontTokenAddAttribute(face_token, "font-family", "font-base64");
+  CSSFontTokenAddAttribute(
+      face_token, "src",
+      "url(data:application/x-font-woff;charset=utf-8;base64,test...)");
+  std::shared_ptr<CSSFontFaceRule> face_token_ptr(face_token);
+  face_token_list.emplace_back(face_token_ptr);
+  fontfaces.insert(
+      std::pair<std::string, std::vector<std::shared_ptr<CSSFontFaceRule>>>(
+          "font-base64", face_token_list));
+
+  auto indexFragment = std::make_shared<SharedCSSFragment>(
+      1, dependent_ids, indexTokensMap, keyframes, fontfaces);
+
+  auto config = lepus::Value(lepus::Dictionary::Create());
+  config.SetProperty(base::String("hydrateID"), lepus::Value("hydrateID"));
+  config.SetProperty(base::String("dirtyID"), lepus::Value("dirtyID"));
+
+  auto current_page = manager->CreateFiberPage("page", 11);
+  current_page->style_sheet_ =
+      std::make_unique<CSSFragmentDecorator>(indexFragment.get());
+
+  auto current_container = manager->CreateFiberView();
+  current_page->InsertNode(current_container);
+
+  auto current_child1 = manager->CreateFiberView();
+  current_container->InsertNode(current_child1);
+  current_child1->enable_new_animator_ = true;
+  current_child1->SetParentComponentUniqueIdForFiber(
+      static_cast<int64_t>(current_page->impl_id()));
+  base::String clazz_name("recommend-ani-image-in");
+  current_child1->SetClass(clazz_name);
+
+  current_page->FlushActionsAsRoot();
+  EXPECT_TRUE(!current_child1->computed_css_style()->animation_data().empty());
+
+  // Prepare environment for cloned element
+  LynxEnvConfig lynx_env_config_1(kWidth, kHeight, kDefaultLayoutsUnitPerPx,
+                                  kDefaultPhysicalPixelsPerLayoutUnit);
+  auto tasm_mediator_1 = std::make_shared<
+      ::testing::NiceMock<lynx::tasm::test::MockTasmDelegate>>();
+  auto unique_manager_1 = std::make_unique<lynx::tasm::ElementManager>(
+      std::make_unique<FiberMockPaintingContext>(), tasm_mediator_1.get(),
+      lynx_env_config_1);
+  auto manager_1 = unique_manager_1.get();
+  auto tasm_1 = std::make_shared<lynx::tasm::TemplateAssembler>(
+      *tasm_mediator_1.get(), std::move(unique_manager_1),
+      *tasm_mediator_1.get(), 0);
+  auto test_entry_1 = std::make_shared<TemplateEntry>();
+  tasm_1->template_entries_.insert({"test_entry", test_entry_1});
+  auto config_1 = std::make_shared<PageConfig>();
+  config_1->SetEnableZIndex(true);
+  manager_1->SetConfig(config_1);
+  tasm_1->page_config_ = config_1;
+  if (thread_strategy == 0) {
+    manager_1->SetThreadStrategy(base::ThreadStrategyForRendering::ALL_ON_UI);
+  } else {
+    manager_1->SetThreadStrategy(
+        base::ThreadStrategyForRendering::MULTI_THREADS);
+  }
+  if (enable_parallel_element_flush) {
+    manager_1->SetEnableParallelElement(true);
+  }
+
+  auto cloned_page_node = lepus::Value(
+      TreeResolver::CloneElementRecursively(current_page.get(), true));
+  fml::RefPtr<FiberElement> cloned_page_node_ref =
+      fml::static_ref_ptr_cast<FiberElement>(cloned_page_node.RefCounted());
+  TreeResolver::AttachRootToElementManager(
+      cloned_page_node_ref, manager_1,
+      tasm_1->style_sheet_manager(tasm::DEFAULT_ENTRY_NAME), true);
+
+  EXPECT_TRUE(manager_1->node_manager_->Get(current_page->impl_id()) !=
+              nullptr);
+  EXPECT_TRUE(manager_1->node_manager_->Get(current_container->impl_id()) !=
+              nullptr);
+  EXPECT_TRUE(manager_1->node_manager_->Get(current_child1->impl_id()) !=
+              nullptr);
+
+  auto cloned_page = static_cast<FiberElement*>(
+      manager_1->node_manager_->Get(current_page->impl_id()));
+  cloned_page->style_sheet_ =
+      std::make_unique<CSSFragmentDecorator>(indexFragment.get());
+  EXPECT_TRUE((cloned_page->dirty_ & FiberElement::kDirtyCloned) > 0);
+
+  auto cloned_child1 = static_cast<FiberElement*>(
+      manager_1->node_manager_->Get(current_child1->impl_id()));
+  EXPECT_TRUE((cloned_child1->dirty_ & FiberElement::kDirtyCloned) > 0);
+  EXPECT_TRUE(cloned_child1->computed_css_style()->animation_data().empty());
+
+  cloned_page->FlushActionsAsRoot();
+  EXPECT_TRUE(!cloned_child1->computed_css_style()->animation_data().empty());
+  EXPECT_TRUE((cloned_child1->dirty_ & FiberElement::kDirtyCloned) == 0);
+  EXPECT_TRUE((cloned_page->dirty_ & FiberElement::kDirtyCloned) == 0);
+}
+
 TEST_P(FiberElementTest, TestGetParentComponentElement) {
   // parent
   auto page = manager->CreateFiberPage("page", 11);
@@ -9953,7 +10205,7 @@ TEST_P(FiberElementTest, EventTest1) {
   CSSParserConfigs configs;
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -9967,7 +10219,7 @@ TEST_P(FiberElementTest, EventTest1) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -10077,7 +10329,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain0) {
   CSSParserConfigs configs;
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -10091,7 +10343,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain0) {
 
   // class .ani
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -10179,7 +10431,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain1) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -10197,7 +10449,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain1) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -10298,7 +10550,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain2) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
   // class .test
@@ -10316,7 +10568,7 @@ TEST_P(FiberElementTest, TestGenerateResponseChain2) {
 
   // class .test01
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -10749,7 +11001,7 @@ TEST_P(FiberElementTest, ClassChildSelectorTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -10767,7 +11019,7 @@ TEST_P(FiberElementTest, ClassChildSelectorTest) {
 
   // .A:first_child
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("green"));
     std::string key = ".A:first-child";
@@ -10780,7 +11032,7 @@ TEST_P(FiberElementTest, ClassChildSelectorTest) {
 
   // .A:last_child
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     std::string key = ".A:last-child";
@@ -10861,7 +11113,7 @@ TEST_P(FiberElementTest, TagNotSelectorTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -10879,7 +11131,7 @@ TEST_P(FiberElementTest, TagNotSelectorTest) {
 
   // .C:not(view)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = ".C:not(view)";
@@ -10949,7 +11201,7 @@ TEST_P(FiberElementTest, ClassNotSelectorTest) {
   CSSParserTokenMap indexTokenMap;
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".C";
@@ -10967,7 +11219,7 @@ TEST_P(FiberElementTest, ClassNotSelectorTest) {
 
   // .C:not(.B)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = ".C:not(.B)";
@@ -11045,7 +11297,7 @@ TEST_P(FiberElementTest, IdNotSelectorTest) {
   CSSParserTokenMap indexTokenMap;
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".C";
@@ -11063,7 +11315,7 @@ TEST_P(FiberElementTest, IdNotSelectorTest) {
 
   // .C:not(#B)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = ".C:not(#B)";
@@ -11141,7 +11393,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -11153,7 +11405,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushTest) {
 
   // class .B
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("green"));
     std::string key = ".B";
@@ -11165,7 +11417,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushTest) {
 
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("black"));
     std::string key = ".C";
@@ -11183,7 +11435,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushTest) {
 
   // class .A.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = ".C.A";
@@ -11195,7 +11447,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushTest) {
 
   // class .B.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     std::string key = ".C.B";
@@ -11265,7 +11517,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -11283,7 +11535,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushTest) {
 
   // id #A#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = "#C#A";
@@ -11295,7 +11547,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushTest) {
 
   // id #B#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     std::string key = "#C#B";
@@ -11365,7 +11617,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -11383,7 +11635,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushTest) {
 
   // #A.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = ".C#A";
@@ -11395,7 +11647,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushTest) {
 
   // #B.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     std::string key = ".C#B";
@@ -11465,7 +11717,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("blue"));
     std::string key = ".A";
@@ -11483,7 +11735,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushTest) {
 
   // .A#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("yellow"));
     std::string key = "#C.A";
@@ -11495,7 +11747,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushTest) {
 
   // .B#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     tokens->raw_attributes_[CSSPropertyID::kPropertyIDBackgroundColor] =
         CSSValue(lepus::Value("red"));
     std::string key = "#C.B";
@@ -11565,7 +11817,7 @@ TEST_P(FiberElementTest, ClassChildSelectorCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -11585,7 +11837,7 @@ TEST_P(FiberElementTest, ClassChildSelectorCSSParserTest) {
 
   // .A:first_child
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("green"), tokens->attributes_,
                          parser_configs);
@@ -11600,7 +11852,7 @@ TEST_P(FiberElementTest, ClassChildSelectorCSSParserTest) {
 
   // .A:last_child
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("red"), tokens->attributes_,
                          parser_configs);
@@ -11683,7 +11935,7 @@ TEST_P(FiberElementTest, TagNotSelectorCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -11703,7 +11955,7 @@ TEST_P(FiberElementTest, TagNotSelectorCSSParserTest) {
 
   // .C:not(view)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -11775,7 +12027,7 @@ TEST_P(FiberElementTest, ClassNotSelectorCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDColor, lepus::Value("blue"),
                          tokens->attributes_, parser_configs);
     tokens->MarkParsed();
@@ -11794,7 +12046,7 @@ TEST_P(FiberElementTest, ClassNotSelectorCSSParserTest) {
 
   // .C:not(.B)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -11874,7 +12126,7 @@ TEST_P(FiberElementTest, IdNotSelectorCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDColor, lepus::Value("blue"),
                          tokens->attributes_, parser_configs);
     tokens->MarkParsed();
@@ -11893,7 +12145,7 @@ TEST_P(FiberElementTest, IdNotSelectorCSSParserTest) {
 
   // .C:not(#B)
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -11973,7 +12225,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -11987,7 +12239,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushCSSParserTest) {
 
   // class .B
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("green"), tokens->attributes_,
                          parser_configs);
@@ -12001,7 +12253,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushCSSParserTest) {
 
   // class .C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("black"), tokens->attributes_,
                          parser_configs);
@@ -12021,7 +12273,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushCSSParserTest) {
 
   // class .A.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -12035,7 +12287,7 @@ TEST_P(FiberElementTest, Class_ClassCascadeForceFlushCSSParserTest) {
 
   // class .B.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("red"), tokens->attributes_,
                          parser_configs);
@@ -12107,7 +12359,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -12127,7 +12379,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushCSSParserTest) {
 
   // id #A#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -12141,7 +12393,7 @@ TEST_P(FiberElementTest, ID_IDCascadeForceFlushCSSParserTest) {
 
   // id #B#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("red"), tokens->attributes_,
                          parser_configs);
@@ -12213,7 +12465,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -12233,7 +12485,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushCSSParserTest) {
 
   // #A.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -12247,7 +12499,7 @@ TEST_P(FiberElementTest, Class_IDCascadeForceFlushCSSParserTest) {
 
   // #B.C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("red"), tokens->attributes_,
                          parser_configs);
@@ -12319,7 +12571,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushCSSParserTest) {
   CSSParserTokenMap indexTokenMap;
   // class .A
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("blue"), tokens->attributes_,
                          parser_configs);
@@ -12339,7 +12591,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushCSSParserTest) {
 
   // .A#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("yellow"), tokens->attributes_,
                          parser_configs);
@@ -12353,7 +12605,7 @@ TEST_P(FiberElementTest, ID_ClassCascadeForceFlushCSSParserTest) {
 
   // .B#C
   {
-    auto tokens = std::make_shared<CSSParseToken>(parser_configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(parser_configs);
     UnitHandler::Process(CSSPropertyID::kPropertyIDBackgroundColor,
                          lepus::Value("red"), tokens->attributes_,
                          parser_configs);
@@ -12559,7 +12811,7 @@ TEST_P(FiberElementTest, TestFlushRequiredPropagateWithInheritance) {
 
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12573,7 +12825,7 @@ TEST_P(FiberElementTest, TestFlushRequiredPropagateWithInheritance) {
 
   // class .component-parent-class-1
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12587,7 +12839,7 @@ TEST_P(FiberElementTest, TestFlushRequiredPropagateWithInheritance) {
 
   // class .component-parent-class-2
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDFontSize;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12601,7 +12853,7 @@ TEST_P(FiberElementTest, TestFlushRequiredPropagateWithInheritance) {
 
   // class .component-class-1
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("red");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12615,7 +12867,7 @@ TEST_P(FiberElementTest, TestFlushRequiredPropagateWithInheritance) {
 
   // class .component-class-2
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDWidth;
     auto impl = lepus::Value("20px");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12706,7 +12958,7 @@ TEST_P(FiberElementTest, TestAsyncResolveProperty) {
 
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12754,7 +13006,7 @@ TEST_P(FiberElementTest, TestAsyncResolveProperty_ReplaceElements) {
 
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -12848,7 +13100,7 @@ TEST_P(FiberElementTest, TestAsyncResolveProperty_CheckElementResolveStatus02) {
 
   // class .root
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDColor;
     auto impl = lepus::Value("blue");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -13068,7 +13320,7 @@ TEST_P(FiberElementTest, TestGetParentFontSize) {
 TEST_P(FiberElementTest, TestTransitionInResetMapAndUpdateMap) {
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   CSSParserTokenMap indexTokensMap;
 
@@ -13087,7 +13339,7 @@ TEST_P(FiberElementTest, TestTransitionInResetMapAndUpdateMap) {
 
   // class .b has transition style
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
     auto id = CSSPropertyID::kPropertyIDTransition;
     auto impl = lepus::Value("opacity 10s");
     tokens.get()->raw_attributes_[id] = CSSValue(impl);
@@ -13101,7 +13353,7 @@ TEST_P(FiberElementTest, TestTransitionInResetMapAndUpdateMap) {
 
   // class .c is empty
   {
-    auto tokens = std::make_shared<CSSParseToken>(configs);
+    auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
     std::string key = ".c";
     auto& sheets = tokens->sheets();
@@ -13544,7 +13796,7 @@ TEST_P(FiberElementTest, RadonFiberArchFontFace) {
   //  constructor css fragment
   StyleMap indexAttributes;
   CSSParserConfigs configs;
-  auto tokens = std::make_shared<CSSParseToken>(configs);
+  auto tokens = fml::MakeRefCounted<CSSParseToken>(configs);
 
   // mock fontfaces
   CSSFontFaceRuleMap fontfaces;

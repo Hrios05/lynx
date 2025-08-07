@@ -9,16 +9,13 @@
 #include "core/include/starlight_standalone/starlight.h"
 
 namespace starlight {
-class StarlightAndroid {
- public:
-  static bool RegisterJNIUtils(JNIEnv *env);
-};
 
 class SLMeasureDelegateAndroid {
  public:
   SLMeasureDelegateAndroid(JNIEnv *env, jobject obj);
   StarlightSize Measure(float width, SLNodeMeasureMode width_mode, float height,
                         SLNodeMeasureMode height_mode);
+  float Baseline(float width, float height);
 
  private:
   lynx::base::android::ScopedWeakGlobalJavaRef<jobject> jni_object_;

@@ -53,6 +53,16 @@ class MockTemplateDelegate : public runtime::TemplateDelegate {
   void AddFont(const lepus::Value& font,
                const piper::ApiCallBack& callback) override {}
 
+  void FetchBundle(
+      const std::string& url,
+      const std::shared_ptr<runtime::ResponsePromise<tasm::BundleResourceInfo>>&
+          response_promise) override {
+    tasm::BundleResourceInfo info;
+    info.url = url;
+    info.code = 0;
+    response_promise->SetValue(info);
+  };
+
   void OnRuntimeReady() override {}
   void OnRuntimeGC(
       std::unordered_map<std::string, std::string> mem_info) override {}
@@ -61,6 +71,8 @@ class MockTemplateDelegate : public runtime::TemplateDelegate {
                              const std::string& method, int32_t code) override {
   }
   void OnCoreJSUpdated(std::string core_js) override {}
+  void OnEvaluateJavaScriptEnd(const std::string& url) override {}
+
   // for component
   void UpdateComponentData(lynx::runtime::UpdateDataTask task) override {}
   void SelectComponent(const std::string& component_id,
@@ -114,6 +126,8 @@ class MockTemplateDelegate : public runtime::TemplateDelegate {
   void SetFrameworkExtraTimingInfo(const tasm::PipelineID& pipeline_id,
                                    const std::string& key,
                                    const std::string& value) override {}
+
+  void InvokeResponsePromiseCallback(base::closure closure) override{};
 
   // for lepus event
   void InvokeLepusComponentCallback(const int64_t callback_id,

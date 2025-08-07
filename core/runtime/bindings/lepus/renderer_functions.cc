@@ -69,8 +69,10 @@
 #include "core/resource/lazy_bundle/lazy_bundle_utils.h"
 #include "core/runtime/bindings/common/event/message_event.h"
 #include "core/runtime/bindings/common/event/runtime_constants.h"
+#include "core/runtime/bindings/common/resource/response_promise.h"
 #include "core/runtime/bindings/lepus/event/lepus_event_listener.h"
 #include "core/runtime/bindings/lepus/renderer.h"
+#include "core/runtime/bindings/lepus/resource/response_handler_in_lepus.h"
 #include "core/runtime/trace/runtime_trace_event_def.h"
 #include "core/runtime/vm/lepus/builtin.h"
 #include "core/runtime/vm/lepus/tasks/lepus_callback_manager.h"
@@ -1029,6 +1031,54 @@ RENDERER_FUNCTION_CC(LoadScript) {
 }
 
 /* Lepus Lynx API END */
+/* ResponseHandler Lynx API BEGIN */
+RENDERER_FUNCTION_CC(FetchBundle) {
+  CHECK_ARGC_GE(FetchBundle, 1);
+  CONVERT_ARG_AND_CHECK(arg0, 0, String, FetchBundle);
+  auto bundle_url = arg0->StdString();
+  lepus::Value options;
+  if (argc > 1) {
+    CONVERT_ARG_AND_CHECK(arg1, 1, Object, FetchBundle);
+    options.SetTable(arg1->Table());
+  }
+
+  auto* self = GET_TASM_POINTER();
+  auto response_promise =
+      std::make_shared<runtime::ResponsePromise<BundleResourceInfo>>();
+  self->FetchBundle(bundle_url, response_promise);
+  auto response_handler = fml::MakeRefCounted<tasm::ResponseHandlerInLepus>(
+      self->GetDelegate(), bundle_url, std::move(response_promise));
+  return ResponseHandlerInLepus::GetBindingObject(LEPUS_CONTEXT(),
+                                                  response_handler);
+}
+
+RENDERER_FUNCTION_CC(WaitingForResponse) {
+  CHECK_ARGC_GE(WaitingForResponse, 1);
+  CONVERT_ARG_AND_CHECK(arg0, 0, Number, WaitingForResponse);
+  auto binding_proxy = LEPUS_CONTEXT()->GetCurrentThis(argv, argc - 1);
+  ResponseHandlerInLepus* response_handler =
+      ResponseHandlerInLepus::GetResponseHandlerFromLepusValue(binding_proxy);
+  auto bundle_info = response_handler->WaitAndGetResource(arg0->Number());
+  return bundle_info.ConvertToLepusValue();
+}
+
+RENDERER_FUNCTION_CC(AddListenerForResponse) {
+  CHECK_ARGC_GE(AddListenerForResponse, 1);
+  CONVERT_ARG_AND_CHECK(arg0, 0, Closure, AddListenerForResponse);
+  auto binding_proxy = LEPUS_CONTEXT()->GetCurrentThis(argv, argc - 1);
+  ResponseHandlerInLepus* response_handler =
+      ResponseHandlerInLepus::GetResponseHandlerFromLepusValue(binding_proxy);
+  response_handler->AddResourceListener(
+      [ctx = LEPUS_CONTEXT(), &arg0](tasm::BundleResourceInfo bundle_info) {
+        auto value = bundle_info.ConvertToLepusValue();
+        std::vector<lepus::Value> param;
+        param.push_back(value);
+        ctx->CallClosureArgs(*arg0, param);
+      });
+  RETURN_UNDEFINED()
+}
+
+/* ResponseHandler Lynx API END */
 
 /* ContextProxy API BEGIN */
 RENDERER_FUNCTION_CC(RuntimeAddEventListener) {
@@ -4616,6 +4666,15 @@ RENDERER_FUNCTION_CC(FiberFlushElementTree) {
         RETURN_UNDEFINED();
       }
     }
+
+    BASE_STATIC_STRING_DECL(kOnLayoutReady, "onLayoutReady");
+    if (auto on_layout_ready = arg1->GetProperty(kOnLayoutReady);
+        on_layout_ready.IsCallable()) {
+      GET_TASM_POINTER()->RegisterOnLayoutReadyHook(
+          [context = LEPUS_CONTEXT(), hook = on_layout_ready]() mutable {
+            context->CallClosure(hook);
+          });
+    }
   }
 
   tasm::TimingCollector::Scope<TemplateAssembler::Delegate> scope(
@@ -7112,7 +7171,8 @@ RENDERER_FUNCTION_CC(CreateStyleObject) {
 static void PushStyleObjectToArray(const lepus::Value& value,
                                    style::StyleObject**& arr,
                                    style::StyleObject** global_style_object,
-                                   int& idx, int& capacity) {
+                                   int& idx, int& capacity,
+                                   TemplateAssembler* tasm) {
   if (idx >= capacity - 1) {
     int new_cap = capacity <<= 1;
     style::StyleObject** new_array = static_cast<style::StyleObject**>(
@@ -7134,11 +7194,21 @@ static void PushStyleObjectToArray(const lepus::Value& value,
     p->AddRef();
     arr[idx++] = p;
   } else if (value.IsArrayOrJSArray()) {
-    ForEachLepusValue(value, [&arr, &global_style_object, &idx, &capacity](
-                                 const lepus::Value&,
-                                 const lepus::Value& value) {
-      PushStyleObjectToArray(value, arr, global_style_object, idx, capacity);
+    ForEachLepusValue(value,
+                      [&arr, &global_style_object, &idx, &capacity, tasm](
+                          const lepus::Value&, const lepus::Value& value) {
+                        PushStyleObjectToArray(value, arr, global_style_object,
+                                               idx, capacity, tasm);
+                      });
+  } else if (value.IsObject()) {
+    StyleMap style_map;
+    ForEachLepusValue(value, [&style_map, tasm](const lepus::Value& key,
+                                                const lepus::Value& value) {
+      ParseSimpleStyleValueToMap(key, value, style_map, tasm);
     });
+    auto* style_object = new style::StyleObject(std::move(style_map));
+    style_object->AddRef();
+    arr[idx++] = style_object;
   }
 }
 
@@ -7161,7 +7231,7 @@ RENDERER_FUNCTION_CC(SetStyleObject) {
     int idx = 0;
 
     PushStyleObjectToArray(*arg1, style_object_raw_array, global_style_objects,
-                           idx, capacity);
+                           idx, capacity, tasm);
 
     // Reset the raw array here, because the array may be reallocated
     // in PushStyleObjectToArray.

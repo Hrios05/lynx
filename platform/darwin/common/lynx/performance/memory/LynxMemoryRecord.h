@@ -20,24 +20,26 @@ typedef LynxMemoryRecord* _Nonnull (^LynxMemoryRecordBuilder)(void);
 @interface LynxMemoryRecord : NSObject
 
 /** The category of the memory record. like "image", "vm", "element" etc. */
-@property(nonatomic, copy, readonly) NSString* category;
-/** The size of the memory record in kilobytes. */
-@property(nonatomic, assign, readonly) float sizeKb;
+@property(nonatomic, copy) NSString* category;
+/** The size of the memory record in bytes. */
+@property(nonatomic, assign) int64_t sizeBytes;
+/** The number of instances of the category. */
+@property(nonatomic, assign) int instanceCount;
 /** The detail information of the memory record. */
-@property(nonatomic, copy, readonly, nullable) NSDictionary<NSString*, NSString*>* detail;
+@property(nonatomic, strong, nullable) NSDictionary<NSString*, NSString*>* detail;
 
 /**
  * @brief Initializes a new LynxMemoryRecord instance with the specified category, size in
  * kilobytes, and detail information.
  *
  * @param category The category of the memory record.
- * @param sizeKb The size of the memory record in kilobytes.
+ * @param sizeBytes The size of the memory record in kilobytes.
  * @param detail The detail information of the memory record.
  *
  * @return A new LynxMemoryRecord instance.
  */
 - (instancetype)initWithCategory:(NSString*)category
-                          sizeKb:(float)sizeKb
+                       sizeBytes:(int64_t)sizeBytes
                           detail:(NSDictionary<NSString*, NSString*>* _Nullable)detail;
 
 @end

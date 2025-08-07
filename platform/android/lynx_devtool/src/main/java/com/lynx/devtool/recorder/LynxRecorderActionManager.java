@@ -21,10 +21,12 @@ import androidx.annotation.Nullable;
 import com.google.gson.Gson;
 import com.lynx.BuildConfig;
 import com.lynx.devtoolwrapper.LynxBaseInspectorOwner;
+import com.lynx.recorder.LynxDebugInfoRecorder;
 import com.lynx.tasm.LynxEnv;
 import com.lynx.tasm.LynxGroup;
 import com.lynx.tasm.LynxGroup.LynxGroupBuilder;
 import com.lynx.tasm.LynxLoadMeta;
+import com.lynx.tasm.LynxLoadMode;
 import com.lynx.tasm.LynxUpdateMeta;
 import com.lynx.tasm.LynxView;
 import com.lynx.tasm.LynxViewBuilder;
@@ -140,6 +142,24 @@ public class LynxRecorderActionManager {
     }
   }
 
+  private class LynxDebugInfoRecorderDelegate implements LynxDebugInfoRecorder {
+    private final Map<String, String> debugInfoDict;
+
+    public LynxDebugInfoRecorderDelegate() {
+      debugInfoDict = new HashMap<>();
+    }
+
+    @Override
+    public void setDebugInfo(String url, String debugInfo) {
+      debugInfoDict.put(url, debugInfo);
+    }
+
+    @Override
+    public String getDebugInfo(String url) {
+      return debugInfoDict.get(url);
+    }
+  }
+
   // store information of some function, which will be called when page reload
   private class ReloadAction {
     private JSONObject mParams;
@@ -212,6 +232,7 @@ public class LynxRecorderActionManager {
   private TemplateBundle mTemplateBundle;
   private TemplateBundleOption mTemplateBundleOptions;
   private LynxRecorderReplayDataProviderInternal mDataProvider;
+  private LynxDebugInfoRecorderDelegate mLynxDebugInfoRecorderDelegate;
 
   public static final int sEndForFirstScreen = 0;
   public static final int sEndForAll = 1;
@@ -300,6 +321,16 @@ public class LynxRecorderActionManager {
             mDataProvider.jsbSettings = mConfig.getJSONObject("jsbSettings");
           }
         }
+        if (json.has("Debug Info")) {
+          JSONArray debugInfo = json.getJSONArray("Debug Info");
+          Log.i("LynxRecorderActionManager", "debugInfo: " + debugInfo.toString());
+          for (int i = 0; i < debugInfo.length(); ++i) {
+            JSONObject info = debugInfo.getJSONObject(i);
+            String url = info.getString("url");
+            String content = info.getString("content");
+            mLynxDebugInfoRecorderDelegate.setDebugInfo(url, content);
+          }
+        }
         if (json.has("Invoked Method Data")) {
           mDataProvider.functionCall = json.getJSONArray("Invoked Method Data");
         }
@@ -369,6 +400,7 @@ public class LynxRecorderActionManager {
     mDelayEndInterval = 3500;
     mRawFontScale = -1;
     mDynamicFetcher = new LynxRecorderFetcher();
+    mLynxDebugInfoRecorderDelegate = new LynxDebugInfoRecorderDelegate();
     mLynxGroup = lynxGroup;
     Resources resources = mContext.getResources();
     DisplayMetrics dm = resources.getDisplayMetrics();
@@ -765,8 +797,8 @@ public class LynxRecorderActionManager {
         } else {
           builder.addBehavior(new Behavior(name, (type & IS_FLATTEN_NODE) != 0) {
             @Override
-            public LynxUI createUI(LynxContext context) {
-              return new UIView(context);
+            public LynxUI createUIWithParams(LynxContext context, Object params) {
+              return new UIView(context, params);
             }
           });
         }
@@ -1030,6 +1062,7 @@ public class LynxRecorderActionManager {
       if (hasScreenSizeInfo() && mEnableSizeOptimization) {
         updateViewLayoutParams(measureSpec[2], measureSpec[3]);
       }
+      mLynxView.getBaseInspectorOwner().setDebugInfoInterceptor(mLynxDebugInfoRecorderDelegate);
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -1121,11 +1154,21 @@ public class LynxRecorderActionManager {
 
           mLynxView.loadTemplate(builder.build());
         } else {
-          mLynxView.ssrHydrate(templateSource, url, mLoadTemplateData);
+          LynxLoadMeta.Builder builder = new LynxLoadMeta.Builder();
+          builder.setLoadMode(LynxLoadMode.HYDRATE_SSR);
+          builder.setUrl(url);
+          builder.setBinaryData(templateSource);
+          builder.setInitialData(mLoadTemplateData);
+          mLynxView.loadTemplate(builder.build());
         }
       } else {
         Map<String, Object> dataMap = (Map) (templateInitData.toMap());
-        mLynxView.renderSSR(templateSource, url, dataMap);
+        LynxLoadMeta.Builder builder = new LynxLoadMeta.Builder();
+        builder.setLoadMode(LynxLoadMode.RENDER_SSR);
+        builder.setUrl(url);
+        builder.setBinaryData(templateSource);
+        builder.setInitialData(TemplateData.fromMap(dataMap));
+        mLynxView.loadTemplate(builder.build());
         mSSRLoaded = true;
       }
     } catch (JSONException e) {

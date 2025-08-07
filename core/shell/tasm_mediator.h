@@ -88,6 +88,8 @@ class TasmMediator : public LynxEngine::Delegate {
 
   void OnTemplateBundleReady(tasm::LynxTemplateBundle bundle) override;
 
+  void InvokeResponsePromiseCallback(base::closure closure) override;
+
   void RecycleTemplateBundle(
       std::unique_ptr<tasm::LynxBinaryRecyclerDelegate> recycler) override;
 
@@ -151,7 +153,7 @@ class TasmMediator : public LynxEngine::Delegate {
 
   void OnCardConfigDataChanged(const lepus::Value& data) override;
 
-  void ReportElementMemoryInfo(float memory_size_byte,
+  void ReportElementMemoryInfo(int64_t memory_size_bytes,
                                int element_count) override;
 
   void OnRuntimeGC(

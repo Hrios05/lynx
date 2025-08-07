@@ -111,7 +111,7 @@ void LazyBundleLoader::LoadFrameBundle(const std::string& src) {
   // TODO(zhoupeng.z): support to load frame bundle on platform layer
   auto request = pub::LynxResourceRequest{src, pub::LynxResourceType::kFrame};
   resource_loader_->LoadResource(
-      request, true,
+      request,
       [src, weak_self = weak_from_this()](pub::LynxResourceResponse& response) {
         auto self = weak_self.lock();
         if (!self) {
@@ -178,6 +178,17 @@ bool LazyBundleLoader::DispatchOnComponentLoaded(TemplateAssembler* tasm,
   bool need_dispatch = false;
   for (const auto& option : option_handle.mapped()) {
     need_dispatch = option->OnLazyBundleLifecycleEnd(tasm) || need_dispatch;
+    // send LazyBundleEntry
+    if (perf_controller_actor_ != nullptr) {
+      auto lazyBundleEntry = option->GetLazyBundleEntry();
+      if (lazyBundleEntry != nullptr) {
+        perf_controller_actor_->ActAsync(
+            [entry = std::move(lazyBundleEntry)](auto& performance) mutable {
+              performance->OnPerformanceEvent(std::move(entry),
+                                              tasm::performance::kEventTypeAll);
+            });
+      }
+    }
   }
 
   return need_dispatch;
@@ -195,9 +206,8 @@ void LazyBundleLoader::RequireTemplate(RadonLazyComponent* lazy_bundle,
   auto request =
       pub::LynxResourceRequest{url, pub::LynxResourceType::kLazyBundle};
   resource_loader_->LoadResource(
-      request, true,
-      [url, weak_self = weak_from_this(), lazy_bundle,
-       instance_id](pub::LynxResourceResponse& response) {
+      request, [url, weak_self = weak_from_this(), lazy_bundle,
+                instance_id](pub::LynxResourceResponse& response) {
         auto self = weak_self.lock();
         if (!self) {
           return;
@@ -228,12 +238,11 @@ void LazyBundleLoader::PreloadTemplates(const std::vector<std::string>& urls) {
     return;
   }
   std::for_each(urls.begin(), urls.end(), [this](const auto& url) {
-    auto request =
-        pub::LynxResourceRequest{url, pub::LynxResourceType::kLazyBundle};
+    auto request = pub::LynxResourceRequest{
+        url, pub::LynxResourceType::kLazyBundle, false};
     resource_loader_->LoadResource(
-        request, false,
-        [url,
-         weak_self = weak_from_this()](pub::LynxResourceResponse& response) {
+        request, [url, weak_self = weak_from_this()](
+                     pub::LynxResourceResponse& response) {
           auto self = weak_self.lock();
           if (!self) {
             return;
